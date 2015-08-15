@@ -1,7 +1,7 @@
 from base import pContext
 from base import getLevelLocation
 
-import bpy
+import bpy, bgl
 from blender_util import cursor_2d_to_location_3d
 
 from item.wall import Wall, getWallFromEmpty
@@ -299,6 +299,22 @@ class FloorMake(bpy.types.Operator):
 ### Floor stuff
 ##################################
 
+def draw_callback_floor(op, context):
+    floor = getFloorObject(context)
+    if not floor:
+        # stop drawing
+        bpy.types.SpaceView3D.draw_handler_remove(op._handle, "WINDOW")
+        op._handle = None
+        return
+    bgl.glColor4f(0.5, 0., 1.0, 1.0)
+    bgl.glLineWidth(4)
+    bgl.glBegin(bgl.GL_LINE_STRIP)
+    for v in floor.data.vertices:
+        bgl.glVertex3f(*(floor.matrix_world*v.co))
+    bgl.glEnd()
+    
+
+
 def floor_begin(context, op):
     empty = context.object
     if not (empty and empty.type=="EMPTY" and empty.parent):
@@ -313,16 +329,16 @@ def floor_continue(context, op, considerFinish):
         op.report({'ERROR'}, "To continue the floor, select an EMPTY object belonging to the wall")
         return {'CANCELLED'}
     # get Blender floor object
-    floor = getFloorObject(context)
+    floorObj = getFloorObject(context)
     # check we if empty has been already used for the floor
-    for m in floor.modifiers:
+    for m in floorObj.modifiers:
         if m.type == "HOOK" and m.object == empty:
             used = True
             break
     else:
         used = False
     if used:
-        if not considerFinish or len(floor.data.vertices)<3:
+        if not considerFinish or len(floorObj.data.vertices)<3:
             op.report({'ERROR'}, "The floor already has a vertex here, select another EMPTY object")
             return {'CANCELLED'}
         if considerFinish:
@@ -330,6 +346,9 @@ def floor_continue(context, op, considerFinish):
     else:
         floor = Floor(context, op)
         floor.extend(empty)
+        if not op._handle:
+            # start drawing
+            op._handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback_floor, (op, context), "WINDOW", "POST_VIEW")
 
 
 def floor_finish(context, op):
@@ -342,6 +361,8 @@ class FloorWork(bpy.types.Operator):
     bl_label = "Work on a floor"
     bl_description = "Universal operator to begin, continue and finish a floor"
     bl_options = {"REGISTER", "UNDO"}
+    
+    _handle = None
     
     def execute(self, context):
         floor = getFloorObject(context)

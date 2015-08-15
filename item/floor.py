@@ -153,7 +153,7 @@ class Floor:
                     assignGroupToVerts(obj, bm.verts.layers.deform[0], group, vert)
                     bm.edges.new((_vert, vert))
                     _vert = vert
-                    inbetweens.append((empty, group))
+                    inbetweens.append((e, group))
                 
         counter += 1
         obj["counter"] = counter
