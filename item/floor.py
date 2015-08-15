@@ -143,7 +143,7 @@ class Floor:
                             break
                         empties.append(e)
                 # for the closed wall check whick path is shorter, in the forward or backward directions
-                if isClosed and empties.length > _empties.length: 
+                if isClosed and len(empties) > len(_empties): 
                     empties = _empties
                 # finally, create floor verts for empties
                 for e in empties:
