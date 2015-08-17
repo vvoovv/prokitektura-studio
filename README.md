@@ -1,1 +1,1 @@
-Please read the [Manual](Manual)
+Please read the [Manual](https://github.com/vvoovv/prokitektura-studio/wiki/Manual)
