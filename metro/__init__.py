@@ -24,7 +24,7 @@ class Metro():
         level.z = 0.
         level = wm.levels.add()
         level.name = "Vestibule"
-        level.z = 8.
+        level.z = 6.
 
 
 pContext.presetCollections[Metro.id] = Metro

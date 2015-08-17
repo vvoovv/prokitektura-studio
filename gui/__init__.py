@@ -306,7 +306,7 @@ def draw_callback_floor(op, context):
         bpy.types.SpaceView3D.draw_handler_remove(op._handle, "WINDOW")
         op._handle = None
         return
-    bgl.glColor4f(0.5, 0., 1.0, 1.0)
+    bgl.glColor4f(0., 0., 1.0, 1.0)
     bgl.glLineWidth(4)
     bgl.glBegin(bgl.GL_LINE_STRIP)
     for v in floor.data.vertices:
