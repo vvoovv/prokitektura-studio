@@ -67,11 +67,12 @@ class Wall:
     
     def create(self, locEnd=None):
         context = self.context
+        prk = context.window_manager.prk
         op = self.op
         loc = getLevelLocation(context)
         
-        h = op.height
-        w = op.width
+        h = prk.newWallHeight
+        w = prk.newWallWidth
         
         # the initial wall segment is oriented along Y-axis by default
         alongX = False

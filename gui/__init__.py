@@ -23,8 +23,6 @@ class MainPanel(bpy.types.Panel):
         #layout.operator("object.wall_extend")
         #layout.operator("object.wall_complete")
         #layout.separator()
-        layout.operator("object.floor_make")
-        layout.prop(prk, "wallAtRight")
         #layout.operator("object.floor_begin")
         #if wm.floorName:
         #    layout.operator("object.floor_continue")
@@ -40,6 +38,16 @@ class MainPanel(bpy.types.Panel):
         
         layout.separator()
         layout.operator("scene.add_item")
+        
+        layout.separator()
+        box = layout.box()
+        box.label("New wall settings")
+        box.prop(prk, "wallAtRight")
+        box.prop(prk, "newWallWidth")
+        box.prop(prk, "newWallHeight")
+        
+        layout.separator()
+        layout.operator("object.floor_make")
 
 
 class PLAN_UL_levels(bpy.types.UIList):
@@ -87,29 +95,13 @@ class WallEditAdd(bpy.types.Operator):
     bl_label = "Add a new wall"
     bl_description = "Adds a new wall"
     bl_options = {"REGISTER", "UNDO"}
-
-    width = bpy.props.FloatProperty(
-        name = "Width",
-        description = "The width of the wall segment",
-        default = 0.3,
-        min = 0.01,
-        max = 10,
-        unit = "LENGTH"
-    )
+    
     length = bpy.props.FloatProperty(
         name = "Length",
         description = "The length of the wall segment",
         default = 2,
         min = 0.1,
         max = 100,
-        unit = "LENGTH"
-    )
-    height = bpy.props.FloatProperty(
-        name = "Heigth",
-        description = "The height of the wall",
-        default = 2.7,
-        min = 0.1,
-        max = 10,
         unit = "LENGTH"
     )
     
@@ -126,29 +118,13 @@ class WallEditExtend(bpy.types.Operator):
     bl_label = "Extend the wall"
     bl_description = "Extends the wall"
     bl_options = {"REGISTER", "UNDO"}
-
-    width = bpy.props.FloatProperty(
-        name = "Width",
-        description = "The width of the wall segment",
-        default = 0.3,
-        min = 0.01,
-        max = 10,
-        unit = "LENGTH"
-    )
+    
     length = bpy.props.FloatProperty(
         name = "Length",
         description = "The length of the wall segment",
         default = 2,
         min = 0.1,
         max = 100,
-        unit = "LENGTH"
-    )
-    height = bpy.props.FloatProperty(
-        name = "Heigth",
-        description = "The height of the wall",
-        default = 2.7,
-        min = 0.1,
-        max = 10,
         unit = "LENGTH"
     )
     
@@ -170,28 +146,12 @@ class WallAdd(bpy.types.Operator):
     bl_description = "Adds a new wall"
     bl_options = {"REGISTER", "UNDO"}
     
-    width = bpy.props.FloatProperty(
-        name = "Width",
-        description = "The width of the wall segment",
-        default = 0.3,
-        min = 0.01,
-        max = 10,
-        unit = "LENGTH"
-    )
     length = bpy.props.FloatProperty(
         name = "Length",
         description = "The length of the wall segment",
         default = 2,
         min = 0.1,
         max = 100,
-        unit = "LENGTH"
-    )
-    height = bpy.props.FloatProperty(
-        name = "Heigth",
-        description = "The height of the wall",
-        default = 2.7,
-        min = 0.1,
-        max = 10,
         unit = "LENGTH"
     )
     
@@ -423,6 +383,24 @@ class PrkStudioProperties(bpy.types.PropertyGroup):
         name = "The wall is at the right",
         description = "Defines if the wall is at the right (checked) from control points or at the left (unchecked)",
         default = True
+    )
+    newWallWidth = bpy.props.FloatProperty(
+        name = "Width",
+        description = "Width of a new wall",
+        default = 0.3,
+        min = 0.01,
+        max = 10,
+        step = 0.1,
+        unit = "LENGTH"
+    )
+    newWallHeight = bpy.props.FloatProperty(
+        name = "Height",
+        description = "Height of a new wall",
+        default = 2.7,
+        min = 0.1,
+        max = 10,
+        step = 0.1,
+        unit = "LENGTH"
     )
 
 
