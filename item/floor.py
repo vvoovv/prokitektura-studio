@@ -5,10 +5,10 @@ from base import zero
 
 
 def getFloorObject(context):
-    wm = context.window_manager
-    if wm.floorName and not wm.floorName in bpy.data.objects:
-        wm.floorName = ""
-    return bpy.data.objects[wm.floorName] if wm.floorName else None
+    prk = context.window_manager.prk
+    if prk.floorName and not prk.floorName in bpy.data.objects:
+        prk.floorName = ""
+    return bpy.data.objects[prk.floorName] if prk.floorName else None
 
 
 class Floor:
@@ -82,7 +82,7 @@ class Floor:
         
         obj = createMeshObject("Floor", self.getLocation(empty))
         obj.hide_select = True
-        context.window_manager.floorName = obj.name
+        context.window_manager.prk.floorName = obj.name
         obj["counter"] = 0
         group = "0"
         bm = getBmesh(obj)
@@ -184,7 +184,7 @@ class Floor:
             bmesh.ops.reverse_faces(bm, faces = (face,))
             bm.to_mesh(obj.data)
         bm.free()
-        self.context.window_manager.floorName = ""
+        self.context.window_manager.prk.floorName = ""
         
     def getLocation(self, empty):
         return empty.parent.matrix_world * empty.matrix_parent_inverse * empty.location

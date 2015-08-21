@@ -9,12 +9,13 @@ from item.floor import Floor, getFloorObject
 
 class MainPanel(bpy.types.Panel):
     bl_label = "Prokitektura"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "TOOLS"
-    bl_category = "Prokitektura"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "scene"
+    #bl_category = "Prokitektura"
     
     def draw(self, context):
-        wm = context.window_manager
+        prk = context.window_manager.prk
         layout = self.layout
         
         #layout.prop(wm, "newAtActive")
@@ -23,6 +24,7 @@ class MainPanel(bpy.types.Panel):
         #layout.operator("object.wall_complete")
         #layout.separator()
         layout.operator("object.floor_make")
+        layout.prop(prk, "wallAtRight")
         #layout.operator("object.floor_begin")
         #if wm.floorName:
         #    layout.operator("object.floor_continue")
@@ -34,7 +36,7 @@ class MainPanel(bpy.types.Panel):
         
         layout.separator()
         layout.row().label("Levels:")
-        layout.template_list("PLAN_UL_levels", "", wm, "levels", wm, "levelIndex")
+        layout.template_list("PLAN_UL_levels", "", prk, "levels", prk, "levelIndex", rows=3)
         
         layout.separator()
         layout.operator("scene.add_item")
@@ -214,7 +216,7 @@ class WallExtend(bpy.types.Operator):
     )
     
     def execute(self, context):
-        empty = context.object
+        empty = context.scene.objects.active
         wall = getWallFromEmpty(context, self, empty, True)
         if not wall:
             self.report({"ERROR"}, "To extend the wall, select an EMPTY object at either open end of the wall")
@@ -231,7 +233,7 @@ class WallComplete(bpy.types.Operator):
 
     
     def execute(self, context):
-        empty = context.object
+        empty = context.scene.objects.active
         wall = getWallFromEmpty(context, self, empty)
         if not wall:
             self.report({"ERROR"}, "To complete the wall, select an EMPTY object belonging to the wall")
@@ -285,7 +287,7 @@ class FloorMake(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
     
     def execute(self, context):
-        empty = context.object
+        empty = context.scene.objects.active
         if not (empty and empty.type=="EMPTY" and empty.parent):
             self.report({"ERROR"}, "To begin a floor, select an EMPTY object belonging to the wall")
             return {'CANCELLED'}
@@ -407,23 +409,29 @@ class FloorFinish(bpy.types.Operator):
         return {'FINISHED'}
 
 
-def register():
-    bpy.utils.register_module(__name__)
-    wm = bpy.types.WindowManager
-    wm.levels = bpy.props.CollectionProperty(type=Level)
-    wm.levelIndex = bpy.props.IntProperty()
+class PrkStudioProperties(bpy.types.PropertyGroup):
+    levels = bpy.props.CollectionProperty(type=Level)
     # the name of the Blender object for the current floor
-    wm.floorName = bpy.props.StringProperty()
-    wm.newAtActive = bpy.props.BoolProperty(
+    levelIndex = bpy.props.IntProperty()
+    floorName = bpy.props.StringProperty()
+    newAtActive = bpy.props.BoolProperty(
         name = "A new item at the active object",
         description = "Adds a new item at the location of the active object, otherwise the 3D cursor location is used for the new item",
         default = False
     )
+    wallAtRight = bpy.props.BoolProperty(
+        name = "The wall is at the right",
+        description = "Defines if the wall is at the right (checked) from control points or at the left (unchecked)",
+        default = True
+    )
+
+
+def register():
+    bpy.utils.register_module(__name__)
+    wm = bpy.types.WindowManager
+    wm.prk = bpy.props.PointerProperty(type=PrkStudioProperties)
 
 def unregister():
     bpy.utils.unregister_module(__name__)
     wm = bpy.types.WindowManager
-    del wm.levels
-    del wm.levelIndex
-    del wm.floorName
-    del wm.newAtActive
+    del wm.prk

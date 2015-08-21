@@ -86,6 +86,8 @@ class Wall:
                 l = dy
         else:
             l = op.length
+            
+        atRight = context.window_manager.prk.wallAtRight
         
         # parent one vert mesh
         parent = createOneVertObject("Wall", loc)
@@ -104,13 +106,22 @@ class Wall:
         layer = bm.verts.layers.deform.new()
         
         # verts
-        v = [
-            (0., 0., 0.), (0., -w, 0.), (l, -w, 0.), (l, 0., 0.),
-            (0., 0., h), (0., -w, h), (l, -w, h), (l, 0., h)
-        ] if alongX else [
-            (0., 0., 0.), (w, 0., 0.), (w, l, 0.), (0, l, 0.),
-            (0., 0., h), (w, 0., h), (w, l, h), (0., l, h)
-        ]
+        if atRight:
+            v = [
+                (0., 0., 0.), (0., -w, 0.), (l, -w, 0.), (l, 0., 0.),
+                (0., 0., h), (0., -w, h), (l, -w, h), (l, 0., h)
+            ] if alongX else [
+                (0., 0., 0.), (w, 0., 0.), (w, l, 0.), (0, l, 0.),
+                (0., 0., h), (w, 0., h), (w, l, h), (0., l, h)
+            ]
+        else:
+            v = [
+                (0., 0., 0.), (0., -w, 0.), (l, -w, 0.), (l, 0., 0.),
+                (0., 0., h), (0., -w, h), (l, -w, h), (l, 0., h)
+            ] if alongX else [
+                (0., 0., 0.), (0., l, 0.), (-w, l, 0.), (-w, 0., 0.),
+                (0., 0., h), (0., l, h), (-w, l, h), (-w, 0., h)
+            ]
         
         # create verts
         for i in range(len(v)):
@@ -131,13 +142,20 @@ class Wall:
         bm.faces.new((v[3], v[7], v[6], v[2]))
         
         # create vertex groups for each vertical wall edge and empty object as a wall controller
-        # for the wall origin
-        # left
-        assignGroupToVerts(obj, layer, "l0", v[0], v[4])
-        assignGroupToVerts(obj, layer, "r0", v[1], v[5])
-        # for the wall end
-        assignGroupToVerts(obj, layer, "l1", v[3], v[7])
-        assignGroupToVerts(obj, layer, "r1", v[2], v[6])
+        if atRight:
+            # for the wall origin
+            assignGroupToVerts(obj, layer, "l0", v[0], v[4])
+            assignGroupToVerts(obj, layer, "r0", v[1], v[5])
+            # for the wall end
+            assignGroupToVerts(obj, layer, "l1", v[3], v[7])
+            assignGroupToVerts(obj, layer, "r1", v[2], v[6])
+        else:
+            # for the wall origin
+            assignGroupToVerts(obj, layer, "l0", v[3], v[7])
+            assignGroupToVerts(obj, layer, "r0", v[0], v[4])
+            # for the wall end
+            assignGroupToVerts(obj, layer, "l1", v[2], v[6])
+            assignGroupToVerts(obj, layer, "r1", v[1], v[5])
         
         bm.to_mesh(obj.data)
         bm.free()
@@ -148,13 +166,20 @@ class Wall:
         # p means previous
         # g means group to identify the related modifier and vertex group
         # w means width
-        l0 = self.createEmptyObject("l0", (0., 0., 0.), False)
+        if atRight:
+            l0 = self.createEmptyObject("l0", (0., 0., 0.), False)
+            r0 = self.createEmptyObject("r0", (0., -w, 0.) if alongX else (w, 0., 0.), True)
+            l1 = self.createEmptyObject("l1", (l, 0., 0.) if alongX else (0., l, 0.), False)
+            r1 = self.createEmptyObject("r1", (l, -w, 0.) if alongX else (w, l, 0.), True)
+        else:
+            l0 = self.createEmptyObject("l0", (-w, 0., 0.), True)
+            r0 = self.createEmptyObject("r0", (0., -w, 0.) if alongX else (0., 0., 0.), False)
+            l1 = self.createEmptyObject("l1", (l, 0., 0.) if alongX else (-w, l, 0.), True)
+            r1 = self.createEmptyObject("r1", (l, -w, 0.) if alongX else (0., l, 0.), False)
+        
         setCustomAttributes(l0, l=1, e=0, g="0", w=w, n="1")
-        r0 = self.createEmptyObject("r0", (0., -w, 0.) if alongX else (w, 0., 0.), True)
         setCustomAttributes(r0, l=0, e=0, g="0", w=w, n="1")
-        l1 = self.createEmptyObject("l1", (l, 0., 0.) if alongX else (0., l, 0.), False)
         setCustomAttributes(l1, l=1, e=1, g="1", w=w, p="0")
-        r1 = self.createEmptyObject("r1", (l, -w, 0.) if alongX else (w, l, 0.), True)
         setCustomAttributes(r1, l=0, e=1, g="1", w=w, p="0")
         
         # without scene.update() parenting and hook modifiers will not work correctly
@@ -174,12 +199,19 @@ class Wall:
         addHookModifier(obj, "r1", r1, "r1")
         
         # add drivers
-        self.addEndEdgeDrivers(r0, l0, l1, False)
-        self.addEndEdgeDrivers(r1, l0, l1, True)
+        if atRight:
+            self.addEndEdgeDrivers(r0, l0, l1, False, atRight)
+            self.addEndEdgeDrivers(r1, l0, l1, True, atRight)
+        else:
+            self.addEndEdgeDrivers(l0, r0, r1, False, atRight)
+            self.addEndEdgeDrivers(l1, r0, r1, True, atRight)
         
         bpy.ops.object.select_all(action="DESELECT")
-        l1.select = True
-        context.scene.objects.active = l1
+        if atRight:
+            l1.select = True
+        else:
+            r1.select = True
+        context.scene.objects.active = l1 if atRight else r1
         
         return (alongX, not alongX, False)
     
@@ -191,7 +223,6 @@ class Wall:
         if locEnd:
             # convert the end location to the coordinate system of the wall
             locEnd = self.parent.matrix_world.inverted() * locEnd
-            
         
         empty2 = self.getNeighbor(empty1)
         context = self.context
@@ -246,7 +277,7 @@ class Wall:
         
         loc = empty1.location + l*n
         e1 = self.createEmptyObject(group1, loc, False)
-        setCustomAttributes(e1, l=1, e=end, g=group, w=w)
+        setCustomAttributes(e1, l=1 if left else 0, e=end, g=group, w=w)
         if end:
             setCustomAttributes(e1, p=empty1["g"])
             setCustomAttributes(empty1, n=group)
@@ -263,7 +294,7 @@ class Wall:
         if not end:
             n = -n
         e2 = self.createEmptyObject(group2, loc + w*n, True)
-        setCustomAttributes(e2, l=0, e=1, g=group, w=w, p=empty1["g"])
+        setCustomAttributes(e2, l=0 if left else 1, e=1, g=group, w=w, p=empty1["g"])
         if end:
             setCustomAttributes(e2, p=empty1["g"])
             setCustomAttributes(empty2, n=group)
@@ -288,16 +319,17 @@ class Wall:
         #    e1.location
         #)
         if end:
-            self.addInternalEdgeDrivers(empty2, self.getPrevious(empty1), empty1, e1, end)
+            self.addInternalEdgeDrivers(empty2, self.getPrevious(empty1), empty1, e1, end, left)
         else:
-            self.addInternalEdgeDrivers(empty2, e1, empty1, self.getNext(empty1), end)
+            self.addInternalEdgeDrivers(empty2, e1, empty1, self.getNext(empty1), end, left)
         
         # create all necessary faces
-        bm.faces.new( (verts1[0], verts1[1], v1_2, v1_1) if end else (v1_1, v1_2, verts1[1], verts1[0]) )
-        bm.faces.new( (v1_1, v1_2, v2_2, v2_1) if end else (v2_1, v2_2, v1_2, v1_1) )
-        bm.faces.new((v2_1, v2_2, verts2[1], verts2[0]) if end else (verts2[0], verts2[1], v2_2, v2_1) )
-        bm.faces.new((verts1[1], verts2[1], v2_2, v1_2) if end else (v1_2, v2_2, verts2[1], verts1[1]) )
-        bm.faces.new((v1_1, v2_1, verts2[0], verts1[0]) if end else (verts1[0], verts2[0], v2_1, v1_1) )
+        condition = (left and end) or (not left and not end)
+        bm.faces.new( (verts1[0], verts1[1], v1_2, v1_1) if condition else (v1_1, v1_2, verts1[1], verts1[0]) )
+        bm.faces.new( (v1_1, v1_2, v2_2, v2_1) if condition else (v2_1, v2_2, v1_2, v1_1) )
+        bm.faces.new((v2_1, v2_2, verts2[1], verts2[0]) if condition else (verts2[0], verts2[1], v2_2, v2_1) )
+        bm.faces.new((verts1[1], verts2[1], v2_2, v1_2) if condition else (v1_2, v2_2, verts2[1], verts1[1]) )
+        bm.faces.new((v1_1, v2_1, verts2[0], verts1[0]) if condition else (verts1[0], verts2[0], v2_1, v1_1) )
         
         assignGroupToVerts(mesh, layer, group1, v1_1, v1_2)
         assignGroupToVerts(mesh, layer, group2, v2_1, v2_2)
@@ -326,9 +358,9 @@ class Wall:
         
         # add drivers
         if end:
-            self.addEndEdgeDrivers(e2, empty1, e1, True)
+            self.addEndEdgeDrivers(e2, empty1, e1, True, left)
         else:
-            self.addEndEdgeDrivers(e2, e1, empty1, False)
+            self.addEndEdgeDrivers(e2, e1, empty1, False, left)
         
         bpy.ops.object.select_all(action="DESELECT")
         e1.select = True
@@ -362,11 +394,11 @@ class Wall:
         
         # create faces
         # top and bottom
-        bm.faces.new((verts2_1[1], verts2_2[1], verts1_2[1], verts1_1[1]))
-        bm.faces.new((verts1_1[0], verts1_2[0], verts2_2[0], verts2_1[0]))
+        bm.faces.new((verts2_1[1], verts2_2[1], verts1_2[1], verts1_1[1]) if left else (verts1_1[1], verts1_2[1], verts2_2[1], verts2_1[1]))
+        bm.faces.new((verts1_1[0], verts1_2[0], verts2_2[0], verts2_1[0]) if left else (verts2_1[0], verts2_2[0], verts1_2[0], verts1_1[0]))
         # front and back
-        bm.faces.new((verts2_1[0], verts2_1[1], verts1_1[1], verts1_1[0]))
-        bm.faces.new((verts1_2[0], verts1_2[1], verts2_2[1], verts2_2[0]))
+        bm.faces.new((verts2_1[0], verts2_1[1], verts1_1[1], verts1_1[0]) if left else (verts1_1[0], verts1_1[1], verts2_1[1], verts2_1[0]))
+        bm.faces.new((verts1_2[0], verts1_2[1], verts2_2[1], verts2_2[0]) if left else (verts2_2[0], verts2_2[1], verts1_2[1], verts1_2[0]))
         
         end["n"] = start["g"]
         start["p"] = end["g"]
@@ -378,8 +410,8 @@ class Wall:
         # without scene.update() parenting and hook modifiers will not work correctly
         self.context.scene.update()
         
-        self.addInternalEdgeDrivers(self.getNeighbor(start), end, start, self.getNext(start), 0)
-        self.addInternalEdgeDrivers(self.getNeighbor(end), self.getPrevious(end), end, start, 1)
+        self.addInternalEdgeDrivers(self.getNeighbor(start), end, start, self.getNext(start), 0, left)
+        self.addInternalEdgeDrivers(self.getNeighbor(end), self.getPrevious(end), end, start, 1, left)
 
     def getNeighbor(self, o):
         prefix = "r" if o["l"] else "l"
@@ -485,7 +517,7 @@ class Wall:
             location.z
         )
 
-    def addEndEdgeDrivers(self, slave, m0, m1, end):
+    def addEndEdgeDrivers(self, slave, m0, m1, end, left):
         """
         Adds drivers for an end vertical edge (a slave edge) of the wall
         
@@ -494,7 +526,10 @@ class Wall:
             m0: A Blender empty object that defines the start of the master horizontal edge of the wall
             m1: A Blender empty object that defines the end of the master horizontal edge of the wall
             end (bool): Defines which of m0 (False) and m1 (True) controls the master open vertical edge of the wall
+            left (bool): Defines if the slave is on the left side of the wall (True) or on the right one (False)
         """
+        sign = "+" if left else "-"
+        
         master = m1 if end else m0
         
         # add driver for slave.location.x
@@ -510,7 +545,7 @@ class Wall:
         # w1 or w2: width
         addSinglePropVariable(x, "w1" if end else "w2", m1, "[\"w\"]")
         # expression
-        x.driver.expression = "x + w1*(y1-y0)/max(d1, 0.001)" if end else "x + w2*(y2-y1)/max(d2, 0.001)"
+        x.driver.expression = "x" +sign+ "w1*(y1-y0)/max(d1, 0.001)" if end else "x" +sign+ "w2*(y2-y1)/max(d2, 0.001)"
         
         # add driver for x r1.location.y
         y = slave.driver_add("location", 1)
@@ -525,9 +560,12 @@ class Wall:
         # w1 or w2: width
         addSinglePropVariable(y, "w1" if end else "w2", m1, "[\"w\"]")
         # expression
-        y.driver.expression = "y + w1*(x0-x1)/max(d1, 0.001)" if end else "y + w2*(x1-x2)/max(d2, 0.001)"
+        y.driver.expression = "y" +sign+ "w1*(x0-x1)/max(d1, 0.001)" if end else "y" +sign+ "w2*(x1-x2)/max(d2, 0.001)"
 
-    def addInternalEdgeDrivers(self, slave, m0, m1, m2, end):
+    def addInternalEdgeDrivers(self, slave, m0, m1, m2, end, left):
+        sign1 = "+" if left else "-"
+        sign2 = "-" if left else "+"
+        
         # update the driver for slave.location.x
         x = slave.animation_data.drivers[0]
         # x0
@@ -543,7 +581,7 @@ class Wall:
         # w2 or w1: width
         addSinglePropVariable(x, "w2" if end else "w1", m2 if end else m1, "[\"w\"]")
         # expression
-        x.driver.expression = "x + w2*(y2-y1)/max(d2,0.001) - (w1-w2*((x1-x0)*(x2-x1)+(y1-y0)*(y2-y1))/max(d1,0.001)/max(d2,0.001)) * (x2-x1) * d1 / ((x1-x0)*(y2-y1)-(y1-y0)*(x2-x1) if abs((x1-x0)*(y2-y1)-(y1-y0)*(x2-x1))>0.001 else 0.001)"
+        x.driver.expression = "x" +sign1+ "w2*(y2-y1)/max(d2,0.001)" +sign2+ "(w1-w2*((x1-x0)*(x2-x1)+(y1-y0)*(y2-y1))/max(d1,0.001)/max(d2,0.001)) * (x2-x1) * d1 / ((x1-x0)*(y2-y1)-(y1-y0)*(x2-x1) if abs((x1-x0)*(y2-y1)-(y1-y0)*(x2-x1))>0.001 else 0.001)"
 
         # update the driver for slave.location.y
         y = slave.animation_data.drivers[1]
@@ -560,4 +598,4 @@ class Wall:
         # w2 or w1: width
         addSinglePropVariable(y, "w2" if end else "w1", m2 if end else m1, "[\"w\"]")
         # expression
-        y.driver.expression = "y + w2*(x1-x2)/max(d2,0.001) - (w1-w2*((x1-x0)*(x2-x1)+(y1-y0)*(y2-y1))/max(d1,0.001)/max(d2,0.001)) * (y2-y1) * d1 / ((x1-x0)*(y2-y1)-(y1-y0)*(x2-x1) if abs((x1-x0)*(y2-y1)-(y1-y0)*(x2-x1))>0.001 else 0.001)"
+        y.driver.expression = "y" +sign1+ "w2*(x1-x2)/max(d2,0.001)" +sign2+ "(w1-w2*((x1-x0)*(x2-x1)+(y1-y0)*(y2-y1))/max(d1,0.001)/max(d2,0.001)) * (y2-y1) * d1 / ((x1-x0)*(y2-y1)-(y1-y0)*(x2-x1) if abs((x1-x0)*(y2-y1)-(y1-y0)*(x2-x1))>0.001 else 0.001)"

@@ -4,7 +4,7 @@ bl_info = {
     "version": (0, 0, 0),
     "blender": (2, 7, 5),
     "location": "View3D > Tool Shelf",
-    "description": "Exterior and interior architecture made faster",
+    "description": "Flexible architecture",
     "warning": "",
     "wiki_url": "https://github.com/vvoovv/prokitektura-studio/wiki/",
     "tracker_url": "https://github.com/vvoovv/prokitektura-studio/issues",

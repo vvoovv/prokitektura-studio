@@ -9,9 +9,9 @@ zero = 0.000001
 
 
 def getLevelHeight(context):
-    wm = context.window_manager
+    prk = context.window_manager.prk
     try:
-        height = wm.levels[wm.levelIndex].z
+        height = prk.levels[prk.levelIndex].z
     except:
         height = 0.
     return height
@@ -22,20 +22,6 @@ def getLevelLocation(context):
     loc.z = getLevelHeight(context)
     return loc
 
-
-def getItem():
-    return context.plan.presets[context.blenderContext.window_manager.sequencePreset][0]
-
-
-def getPresetAttr(attr):
-    preset = context.plan.presets[context.blenderContext.window_manager.sequencePreset]
-    # preset is actually a tuple
-    if preset[0].hasPresets:
-        obj = preset[2] if hasattr(preset[2], attr) else preset[0]
-    else:
-        obj = preset[0]
-    return getattr(obj, attr, None)
-        
 
 class Context:
     
@@ -68,11 +54,11 @@ class FloorPlan():
     
     def __init__(self):
         # clean up levels
-        wm = bpy.context.window_manager
-        wm.levels.clear()
+        prk = bpy.context.window_manager.prk
+        prk.levels.clear()
         # reset levelIndex (i.e. currently active level)
-        wm.levelIndex = 0
-        level = wm.levels.add()
+        prk.levelIndex = 0
+        level = prk.levels.add()
         level.name = "Ground floor"
         level.z = 0.
 

@@ -15,14 +15,14 @@ class Metro():
     def __init__(self):
         
         # clean up levels
-        wm = bpy.context.window_manager
-        wm.levels.clear()
+        prk = bpy.context.window_manager.prk
+        prk.levels.clear()
         # reset levelIndex (i.e. currently active level)
-        wm.levelIndex = 0
-        level = wm.levels.add()
+        prk.levelIndex = 0
+        level = prk.levels.add()
         level.name = "Platform"
         level.z = 0.
-        level = wm.levels.add()
+        level = prk.levels.add()
         level.name = "Vestibule"
         level.z = 6.
 
