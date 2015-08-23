@@ -13,6 +13,10 @@ def getFloorObject(context):
 
 class Floor:
     
+    type = "floor"
+    
+    name = "Floor"
+    
     def __init__(self, context, op, empty=None):
         self.context = context
         self.op = op
@@ -28,6 +32,7 @@ class Floor:
 
         obj = createMeshObject("Floor", self.getLocation(origin))
         obj.hide_select = True
+        obj["type"] = Floor.type
         # without scene.update() obj.matrix_world.inverted() won't give the correct result 
         context.scene.update()
         objMatrixInverted = obj.matrix_world.inverted()

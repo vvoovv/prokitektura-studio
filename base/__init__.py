@@ -28,12 +28,18 @@ class Context:
     # a registry to store references to Blender operators responsible for specific categories
     classes = {}
     
+    # a registry to store references to instances of GUI classes
+    gui = {}
+    
     def __init__(self):
         self.presetCollections = {}
         
     def loadPresetCollection(self, _id):
         if not _id in self.presetCollections: return
         self.presetCollections[_id]()
+    
+    def registerGui(self, Cls, GuiCls):
+        self.gui[Cls.type] = (GuiCls(), Cls.name)
     
     def register_class(self, _id, cl):
         if not _id in self.classes:

@@ -42,9 +42,9 @@ def register():
         wm.keyconfigs.addon.keymaps.remove(keymap)
     km = wm.keyconfigs.addon.keymaps.new(name="Object Mode")
     # shortcut for adding a new wall
-    km.keymap_items.new("object.wall_edit_add", "E", "PRESS")
+    km.keymap_items.new("object.wall_edit_add", "D", "PRESS")
     # shortcut for extending the wall
-    km.keymap_items.new("object.wall_edit_extend", "D", "PRESS")
+    km.keymap_items.new("object.wall_edit_extend", "E", "PRESS")
     # shortcut for completing the wall
     km.keymap_items.new("object.wall_complete", "Q", "PRESS")
     # shortcut to work on a floor

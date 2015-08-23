@@ -100,3 +100,8 @@ def cursor_2d_to_location_3d(context, event):
     region = context.region
     rv3d = context.space_data.region_3d
     return region_2d_to_location_3d(region, rv3d, coords, region_2d_to_vector_3d(region, rv3d, coords))
+
+
+def hide_select(o, value):
+    o.hide = value
+    o.hide_select = value

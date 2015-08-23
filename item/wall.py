@@ -1,5 +1,5 @@
 import bmesh
-from base import getLevelLocation, xAxis, yAxis, zAxis, zero
+from base import pContext, getLevelLocation, xAxis, yAxis, zAxis, zero
 from blender_util import *
 
 
@@ -47,7 +47,19 @@ def getFaceFortVerts(verts1, verts2):
             return face
 
 
+class GuiWall:
+    
+    def draw(self, context, layout):
+        layout.operator("object.floor_make")
+        layout.separator()
+        layout.operator("object.wall_flip_controls")
+
+
 class Wall:
+    
+    type = "wall"
+    
+    name = "Wall"
     
     emptyProperties = {'empty_draw_type':'CUBE', 'empty_draw_size':0.02}
     
@@ -92,6 +104,7 @@ class Wall:
         
         # parent one vert mesh
         parent = createOneVertObject("Wall", loc)
+        parent["type"] = Wall.type
         parent.dupli_type = "VERTS"
         parent.hide_select = True
         
@@ -295,7 +308,7 @@ class Wall:
         if not end:
             n = -n
         e2 = self.createEmptyObject(group2, loc + w*n, True)
-        setCustomAttributes(e2, l=0 if left else 1, e=1, g=group, w=w, p=empty1["g"])
+        setCustomAttributes(e2, l=0 if left else 1, e=end, g=group, w=w)
         if end:
             setCustomAttributes(e2, p=empty1["g"])
             setCustomAttributes(empty2, n=group)
@@ -320,9 +333,9 @@ class Wall:
         #    e1.location
         #)
         if end:
-            self.addInternalEdgeDrivers(empty2, self.getPrevious(empty1), empty1, e1, end, left)
+            self.addInternalEdgeDrivers(empty2, self.getPrevious(empty1), empty1, e1, 1, left)
         else:
-            self.addInternalEdgeDrivers(empty2, e1, empty1, self.getNext(empty1), end, left)
+            self.addInternalEdgeDrivers(empty2, e1, empty1, self.getNext(empty1), 0, left)
         
         # create all necessary faces
         condition = (left and end) or (not left and not end)
@@ -413,7 +426,82 @@ class Wall:
         
         self.addInternalEdgeDrivers(self.getNeighbor(start), end, start, self.getNext(start), 0, left)
         self.addInternalEdgeDrivers(self.getNeighbor(end), self.getPrevious(end), end, start, 1, left)
-
+        
+        # update also attributes for the neighbors of start and end
+        start = self.getNeighbor(start)
+        end = self.getNeighbor(end)
+        end["n"] = start["g"]
+        start["p"] = end["g"]
+        del start["e"], end["e"]
+    
+    def flipControls(self, o):
+        left = o["l"]
+        prefix1 = "l" if left else "r"
+        # prefix for the neighbor verts located to the left or to the right
+        prefix2 = "r" if left else "l"
+        
+        closed = self.isClosed()
+        
+        # remove drivers from the active side defined by left variable
+        e = o if closed else self.getStart(left)
+        while True:
+            self.getNeighbor(e).driver_remove("location")
+            hide_select(e, True)
+            e = self.getNext(e)
+            if (closed and e == o) or (not closed and e is None):
+                break
+        
+        # add drivers for the currently inactive side
+        if closed:
+            m1 = self.getNeighbor(o)
+            m0 = self.getPrevious(m1)
+            m2 = self.getNext(m1)
+            e = o
+            while True:
+                self.addInternalEdgeDrivers(e, m0, m1, m2, 1, not left, False)
+                hide_select(m1, False)
+                e = self.getNext(e)
+                if e == o:
+                    break
+                m0 = m1
+                m1 = m2
+                m2 = self.getNext(m2)
+        else:
+            start = self.getStart(left)
+            hide_select(start, True)
+            end = self.getEnd(left)
+            hide_select(end, True)
+            m0 = self.getNeighbor(start)
+            m1 = self.getNext(m0)
+            m2 = self.getNext(m1)
+            
+            left = not left
+            # start
+            self.addEndEdgeDrivers(start, m0, m1, False, left)
+            hide_select(m0, False)
+            # in-betweens
+            if m2:
+                e = self.getNext(start)
+                while True:
+                    self.addInternalEdgeDrivers(e, m0, m1, m2, 1, left, False)
+                    hide_select(m1, False)
+                    e = self.getNext(e)
+                    if e == end:
+                        break
+                    m0 = m1
+                    m1 = m2
+                    m2 = self.getNext(m2)
+            else:
+                m1, m2 = m0, m1
+            # end
+            self.addEndEdgeDrivers(end, m1, m2, True, left)
+            hide_select(m2, False)
+        
+        # select the neighbor of <o>
+        o = self.getNeighbor(o)
+        o.select = True
+        self.context.scene.objects.active = o       
+            
     def getNeighbor(self, o):
         prefix = "r" if o["l"] else "l"
         return self.mesh.modifiers[prefix+o["g"]].object
@@ -518,7 +606,7 @@ class Wall:
             location.z
         )
 
-    def addEndEdgeDrivers(self, slave, m0, m1, end, left):
+    def addEndEdgeDrivers(self, slave, m0, m1, end, left, createExpression=True):
         """
         Adds drivers for an end vertical edge (a slave edge) of the wall
         
@@ -546,7 +634,8 @@ class Wall:
         # w1 or w2: width
         addSinglePropVariable(x, "w1" if end else "w2", m1, "[\"w\"]")
         # expression
-        x.driver.expression = "x" +sign+ "w1*(y1-y0)/max(d1, 0.001)" if end else "x" +sign+ "w2*(y2-y1)/max(d2, 0.001)"
+        if createExpression:
+            x.driver.expression = "x" +sign+ "w1*(y1-y0)/max(d1, 0.001)" if end else "x" +sign+ "w2*(y2-y1)/max(d2, 0.001)"
         
         # add driver for x r1.location.y
         y = slave.driver_add("location", 1)
@@ -561,11 +650,15 @@ class Wall:
         # w1 or w2: width
         addSinglePropVariable(y, "w1" if end else "w2", m1, "[\"w\"]")
         # expression
-        y.driver.expression = "y" +sign+ "w1*(x0-x1)/max(d1, 0.001)" if end else "y" +sign+ "w2*(x1-x2)/max(d2, 0.001)"
+        if createExpression:
+            y.driver.expression = "y" +sign+ "w1*(x0-x1)/max(d1, 0.001)" if end else "y" +sign+ "w2*(x1-x2)/max(d2, 0.001)"
 
-    def addInternalEdgeDrivers(self, slave, m0, m1, m2, end, left):
+    def addInternalEdgeDrivers(self, slave, m0, m1, m2, end, left, update=True):
         sign1 = "+" if left else "-"
         sign2 = "-" if left else "+"
+        
+        if not update:
+            self.addEndEdgeDrivers(slave, m0, m1, end, left, False)
         
         # update the driver for slave.location.x
         x = slave.animation_data.drivers[0]
@@ -600,3 +693,6 @@ class Wall:
         addSinglePropVariable(y, "w2" if end else "w1", m2 if end else m1, "[\"w\"]")
         # expression
         y.driver.expression = "y" +sign1+ "w2*(x1-x2)/max(d2,0.001)" +sign2+ "(w1-w2*((x1-x0)*(x2-x1)+(y1-y0)*(y2-y1))/max(d1,0.001)/max(d2,0.001)) * (y2-y1) * d1 / ((x1-x0)*(y2-y1)-(y1-y0)*(x2-x1) if abs((x1-x0)*(y2-y1)-(y1-y0)*(x2-x1))>0.001 else 0.001)"
+
+
+pContext.registerGui(Wall, GuiWall)

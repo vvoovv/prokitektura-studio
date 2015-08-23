@@ -4,15 +4,16 @@ from base import getLevelLocation
 import bpy, bgl
 from blender_util import cursor_2d_to_location_3d
 
+from base import pContext
 from item.wall import Wall, getWallFromEmpty
 from item.floor import Floor, getFloorObject
 
-class MainPanel(bpy.types.Panel):
+
+class PanelMain(bpy.types.Panel):
     bl_label = "Prokitektura"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
     bl_context = "scene"
-    #bl_category = "Prokitektura"
     
     def draw(self, context):
         prk = context.window_manager.prk
@@ -45,9 +46,27 @@ class MainPanel(bpy.types.Panel):
         box.prop(prk, "wallAtRight")
         box.prop(prk, "newWallWidth")
         box.prop(prk, "newWallHeight")
+
+
+class PanelItem(bpy.types.Panel):
+    bl_label = "Prokitektura"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "object"
+    
+    def draw(self, context):
+        obj = context.scene.objects.active
+        if not obj:
+            return
+        obj = obj if "type" in obj else ( obj.parent if obj.parent and "type" in obj.parent else None )
+        if not (obj and obj["type"] in pContext.gui):
+            return
         
-        layout.separator()
-        layout.operator("object.floor_make")
+        layout = self.layout
+        guiEntry = pContext.gui[obj["type"]]
+        layout.label("%s: %s" % (guiEntry[1], obj.name))
+        guiEntry[0].draw(context, layout)
+        
 
 
 class PLAN_UL_levels(bpy.types.UIList):
@@ -190,7 +209,6 @@ class WallComplete(bpy.types.Operator):
     bl_label = "Complete the wall"
     bl_description = "Completes the wall"
     bl_options = {"REGISTER", "UNDO"}
-
     
     def execute(self, context):
         empty = context.scene.objects.active
@@ -198,6 +216,21 @@ class WallComplete(bpy.types.Operator):
         if not wall:
             self.report({"ERROR"}, "To complete the wall, select an EMPTY object belonging to the wall")
         wall.complete(empty["l"])
+        return {'FINISHED'}
+
+
+class WallFlipControls(bpy.types.Operator):
+    bl_idname = "object.wall_flip_controls"
+    bl_label = "Flip control points for the wall"
+    bl_description = "Flips control points for the wall"
+    bl_options = {"REGISTER", "UNDO"}
+    
+    def execute(self, context):
+        empty = context.scene.objects.active
+        wall = getWallFromEmpty(context, self, empty)
+        if not wall:
+            self.report({"ERROR"}, "To flip control points for the wall, select an EMPTY object belonging to the wall")
+        wall.flipControls(empty)
         return {'FINISHED'}
 
 
