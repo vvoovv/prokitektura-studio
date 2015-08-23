@@ -64,7 +64,7 @@ class PanelItem(bpy.types.Panel):
         
         layout = self.layout
         guiEntry = pContext.gui[obj["type"]]
-        layout.label("%s: %s" % (guiEntry[1], obj.name))
+        layout.box().label("%s: %s" % (guiEntry[1], obj.name))
         guiEntry[0].draw(context, layout)
         
 
