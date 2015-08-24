@@ -47,6 +47,8 @@ def register():
     km.keymap_items.new("object.wall_edit_extend", "E", "PRESS")
     # shortcut for completing the wall
     km.keymap_items.new("object.wall_complete", "Q", "PRESS")
+    # shortcut to make a floor
+    km.keymap_items.new("object.floor_make", "F", "PRESS", ctrl=True)
     # shortcut to work on a floor
     km.keymap_items.new("object.floor_work", "F", "PRESS")
     #kmi.properties.name = ""
