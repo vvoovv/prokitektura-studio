@@ -105,7 +105,8 @@ class Wall:
         
         # parent one vert mesh
         parent = createOneVertObject("Wall", loc)
-        parent["type"] = Wall.type
+        # type
+        parent["t"] = Wall.type
         parent.dupli_type = "VERTS"
         parent.hide_select = True
         
@@ -182,15 +183,15 @@ class Wall:
         # g means group to identify the related modifier and vertex group
         # w means width
         if atRight:
-            l0 = self.createEmptyObject("l0", (0., 0., 0.), False)
-            r0 = self.createEmptyObject("r0", (0., -w, 0.) if alongX else (w, 0., 0.), True)
-            l1 = self.createEmptyObject("l1", (l, 0., 0.) if alongX else (0., l, 0.), False)
-            r1 = self.createEmptyObject("r1", (l, -w, 0.) if alongX else (w, l, 0.), True)
+            l0 = self.createCornerEmptyObject("l0", (0., 0., 0.), False)
+            r0 = self.createCornerEmptyObject("r0", (0., -w, 0.) if alongX else (w, 0., 0.), True)
+            l1 = self.createCornerEmptyObject("l1", (l, 0., 0.) if alongX else (0., l, 0.), False)
+            r1 = self.createCornerEmptyObject("r1", (l, -w, 0.) if alongX else (w, l, 0.), True)
         else:
-            l0 = self.createEmptyObject("l0", (-w, 0., 0.), True)
-            r0 = self.createEmptyObject("r0", (0., -w, 0.) if alongX else (0., 0., 0.), False)
-            l1 = self.createEmptyObject("l1", (l, 0., 0.) if alongX else (-w, l, 0.), True)
-            r1 = self.createEmptyObject("r1", (l, -w, 0.) if alongX else (0., l, 0.), False)
+            l0 = self.createCornerEmptyObject("l0", (-w, 0., 0.), True)
+            r0 = self.createCornerEmptyObject("r0", (0., -w, 0.) if alongX else (0., 0., 0.), False)
+            l1 = self.createCornerEmptyObject("l1", (l, 0., 0.) if alongX else (-w, l, 0.), True)
+            r1 = self.createCornerEmptyObject("r1", (l, -w, 0.) if alongX else (0., l, 0.), False)
         
         setCustomAttributes(l0, l=1, e=0, g="0", w=w, n="1")
         setCustomAttributes(r0, l=0, e=0, g="0", w=w, n="1")
@@ -295,7 +296,7 @@ class Wall:
             l = op.length
         
         loc = empty1.location + l*n
-        e1 = self.createEmptyObject(group1, loc, False)
+        e1 = self.createCornerEmptyObject(group1, loc, False)
         setCustomAttributes(e1, l=1 if left else 0, e=end, g=group, w=w)
         if end:
             setCustomAttributes(e1, p=empty1["g"])
@@ -312,7 +313,7 @@ class Wall:
         n = n.cross(zAxis)
         if not end:
             n = -n
-        e2 = self.createEmptyObject(group2, loc + w*n, True)
+        e2 = self.createCornerEmptyObject(group2, loc + w*n, True)
         setCustomAttributes(e2, l=0 if left else 1, e=end, g=group, w=w)
         if end:
             setCustomAttributes(e2, p=empty1["g"])
@@ -544,16 +545,20 @@ class Wall:
     def isClosed(self):
         return not "end" in self.mesh
     
-    def createEmptyObject(self, name, location, hide, forCorner=True):
-        empty = createEmptyObject(name, location, hide, **self.emptyPropsCorner if forCorner else self.emptyPropsSegment)
+    def createCornerEmptyObject(self, name, location, hide):
+        empty = createEmptyObject(name, location, hide, **self.emptyPropsCorner)
         empty.lock_location[2] = True
+        # wc stands for "wall corner"
+        empty["t"] = "wc"
         return empty
     
     def createSegmentEmptyObject(self, e0, e1, parent, hide):
         left = e1["l"]
         # the name is derived from e1
-        empty = self.createEmptyObject(("sl" if left else "sr") + e1["g"], (e0.location + e1.location)/2, hide, False)
-        setCustomAttributes(empty, l=left, g=e1["g"])
+        empty = createEmptyObject(("sl" if left else "sr") + e1["g"], (e0.location + e1.location)/2, hide, **self.emptyPropsSegment)
+        empty.lock_location[2] = True
+        # ws stands for "wall segment"
+        setCustomAttributes(empty, t="ws", l=left, g=e1["g"])
         parent_set(empty, parent)
 
         # add driver for empty.location.x

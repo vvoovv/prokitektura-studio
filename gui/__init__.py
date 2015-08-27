@@ -56,14 +56,16 @@ class PanelItem(bpy.types.Panel):
     
     def draw(self, context):
         obj = context.scene.objects.active
-        if not obj:
+        if not (obj and "t" in obj):
             return
-        obj = obj if "type" in obj else ( obj.parent if obj.parent and "type" in obj.parent else None )
-        if not (obj and obj["type"] in pContext.gui):
-            return
+        if not obj in pContext.gui:
+            # try the parent
+            obj = obj.parent
+            if not (obj and "t" in obj and obj["t"] in pContext.gui):
+                return
         
         layout = self.layout
-        guiEntry = pContext.gui[obj["type"]]
+        guiEntry = pContext.gui[obj["t"]]
         layout.box().label("%s: %s" % (guiEntry[1], obj.name))
         guiEntry[0].draw(context, layout)
         

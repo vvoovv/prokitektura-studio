@@ -32,7 +32,8 @@ class Floor:
 
         obj = createMeshObject("Floor", self.getLocation(origin))
         obj.hide_select = True
-        obj["type"] = Floor.type
+        # type
+        obj["t"] = Floor.type
         # without scene.update() obj.matrix_world.inverted() won't give the correct result 
         context.scene.update()
         objMatrixInverted = obj.matrix_world.inverted()
