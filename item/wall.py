@@ -61,7 +61,8 @@ class Wall:
     
     name = "Wall"
     
-    emptyProperties = {'empty_draw_type':'CUBE', 'empty_draw_size':0.02}
+    emptyPropsCorner = {'empty_draw_type':'CUBE', 'empty_draw_size':0.02}
+    emptyPropsSegment = {'empty_draw_type':'SPHERE', 'empty_draw_size':0.05}
     
     def __init__(self, context, op, create):
         self.context = context
@@ -219,6 +220,10 @@ class Wall:
         else:
             self.addEndEdgeDrivers(l0, r0, r1, False, atRight)
             self.addEndEdgeDrivers(l1, r0, r1, True, atRight)
+            
+        # create Blender EMPTY objects that for the initial wall segment:
+        self.createSegmentEmptyObject(l0, l1, parent, False if atRight else True)
+        self.createSegmentEmptyObject(r0, r1, parent, True if atRight else False)
         
         bpy.ops.object.select_all(action="DESELECT")
         if atRight:
@@ -375,6 +380,10 @@ class Wall:
             self.addEndEdgeDrivers(e2, empty1, e1, True, left)
         else:
             self.addEndEdgeDrivers(e2, e1, empty1, False, left)
+
+        # create Blender EMPTY objects for the just created wall segment:
+        self.createSegmentEmptyObject(empty1, e1, self.parent, False)
+        self.createSegmentEmptyObject(empty2, e2, self.parent, True)
         
         bpy.ops.object.select_all(action="DESELECT")
         e1.select = True
@@ -433,6 +442,10 @@ class Wall:
         end["n"] = start["g"]
         start["p"] = end["g"]
         del start["e"], end["e"]
+
+        # create Blender EMPTY objects for the just created wall segment:
+        self.createSegmentEmptyObject(start, end, self.parent, start.hide)
+        self.createSegmentEmptyObject(self.getNeighbor(start), self.getNeighbor(end), self.parent, not start.hide)
     
     def flipControls(self, o):
         left = o["l"]
@@ -531,9 +544,36 @@ class Wall:
     def isClosed(self):
         return not "end" in self.mesh
     
-    def createEmptyObject(self, name, location, hide):
-        empty = createEmptyObject(name, location, hide, **self.emptyProperties)
+    def createEmptyObject(self, name, location, hide, forCorner=True):
+        empty = createEmptyObject(name, location, hide, **self.emptyPropsCorner if forCorner else self.emptyPropsSegment)
         empty.lock_location[2] = True
+        return empty
+    
+    def createSegmentEmptyObject(self, e0, e1, parent, hide):
+        left = e1["l"]
+        # the name is derived from e1
+        empty = self.createEmptyObject(("sl" if left else "sr") + e1["g"], (e0.location + e1.location)/2, hide, False)
+        setCustomAttributes(empty, l=left, g=e1["g"])
+        parent_set(empty, parent)
+
+        # add driver for empty.location.x
+        x = empty.driver_add("location", 0)
+        # x0
+        addTransformsVariable(x, "x0", e0, "LOC_X")
+        # x1
+        addTransformsVariable(x, "x1", e1, "LOC_X")
+        # expression
+        x.driver.expression = "(x0+x1)/2."
+        
+        # add driver for empty.location.y
+        y = empty.driver_add("location", 1)
+        # y0
+        addTransformsVariable(y, "y0", e0, "LOC_Y")
+        # y1
+        addTransformsVariable(y, "y1", e1, "LOC_Y")
+        # expression
+        y.driver.expression = "(y0+y1)/2."
+
         return empty
     
     def getVertsForVertexGroup(self, bm, group):
@@ -637,7 +677,7 @@ class Wall:
         if createExpression:
             x.driver.expression = "x" +sign+ "w1*(y1-y0)/max(d1, 0.001)" if end else "x" +sign+ "w2*(y2-y1)/max(d2, 0.001)"
         
-        # add driver for x r1.location.y
+        # add driver for x slave.location.y
         y = slave.driver_add("location", 1)
         # y
         addTransformsVariable(y, "y", master, "LOC_Y")
