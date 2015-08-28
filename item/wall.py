@@ -47,12 +47,35 @@ def getFaceFortVerts(verts1, verts2):
             return face
 
 
+def getWidth(self):
+    """Returns the width of the wall segment defined by an active segment EMPTY"""
+    context = bpy.context
+    o = context.scene.objects.active
+    wall = getWallFromEmpty(context, None, o)
+    return wall.getCornerEmpty(o)["w"]
+
+
+def setWidth(self, value):
+    """Sets the width for the wall segment defined by an active segment EMPTY"""
+    context = bpy.context
+    o = context.scene.objects.active
+    wall = getWallFromEmpty(context, None, o)
+    o = wall.getCornerEmpty(o)
+    o["w"] = value
+    wall.getNeighbor(o)["w"] = value
+    # a hack, without it the width of the related wall segment won't be updated
+    o.location = o.location
+
+
 class GuiWall:
     
     def draw(self, context, layout):
         layout.operator("object.floor_make")
         layout.separator()
         layout.operator("object.wall_flip_controls")
+        o = context.scene.objects.active
+        if o["t"] == "ws":
+            layout.prop(context.window_manager.prk, "wallSegmentWidth")
 
 
 class Wall:
@@ -383,8 +406,12 @@ class Wall:
             self.addEndEdgeDrivers(e2, e1, empty1, False, left)
 
         # create Blender EMPTY objects for the just created wall segment:
-        self.createSegmentEmptyObject(empty1, e1, self.parent, False)
-        self.createSegmentEmptyObject(empty2, e2, self.parent, True)
+        if end:
+            self.createSegmentEmptyObject(empty1, e1, self.parent, False)
+            self.createSegmentEmptyObject(empty2, e2, self.parent, True)
+        else:
+            self.createSegmentEmptyObject(e1, empty1, self.parent, False)
+            self.createSegmentEmptyObject(e2, empty2, self.parent, True)
         
         bpy.ops.object.select_all(action="DESELECT")
         e1.select = True

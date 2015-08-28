@@ -5,7 +5,7 @@ import bpy, bgl
 from blender_util import cursor_2d_to_location_3d
 
 from base import pContext
-from item.wall import Wall, getWallFromEmpty
+from item.wall import Wall, getWallFromEmpty, setWidth, getWidth
 from item.floor import Floor, getFloorObject
 
 
@@ -436,6 +436,17 @@ class PrkStudioProperties(bpy.types.PropertyGroup):
         max = 10,
         step = 0.1,
         unit = "LENGTH"
+    )
+    wallSegmentWidth = bpy.props.FloatProperty(
+        name = "Segment width",
+        description = "Width of a wall segment",
+        default = 0.3,
+        min = 0.01,
+        max = 10,
+        step = 0.1,
+        unit = "LENGTH",
+        set = setWidth,
+        get = getWidth
     )
 
 
