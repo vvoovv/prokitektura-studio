@@ -26,6 +26,7 @@ class Floor:
     def make(self, empty):
         context = self.context
         wall = getWallFromEmpty(context, self.op, empty)
+        empty = wall.getCornerEmpty(empty)
         left = empty["l"]
         closed = wall.isClosed()
         origin = empty if closed else wall.getStart(left)

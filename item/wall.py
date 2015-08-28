@@ -445,8 +445,8 @@ class Wall:
         del start["e"], end["e"]
 
         # create Blender EMPTY objects for the just created wall segment:
-        self.createSegmentEmptyObject(start, end, self.parent, start.hide)
-        self.createSegmentEmptyObject(self.getNeighbor(start), self.getNeighbor(end), self.parent, not start.hide)
+        self.createSegmentEmptyObject(end, start, self.parent, start.hide)
+        self.createSegmentEmptyObject(self.getNeighbor(end), self.getNeighbor(start), self.parent, not start.hide)
     
     def flipControls(self, o):
         left = o["l"]
@@ -454,7 +454,13 @@ class Wall:
         # prefix for the neighbor verts located to the left or to the right
         prefix2 = "r" if left else "l"
         
+        # keep reference to the input EMPTY object
+        _o = o 
+        
         closed = self.isClosed()
+        
+        # 1) deal with corner empties
+        o = self.getCornerEmpty(o)
         
         # remove drivers from the active side defined by left variable
         e = o if closed else self.getStart(left)
@@ -467,12 +473,13 @@ class Wall:
         
         # add drivers for the currently inactive side
         if closed:
+            left = not left
             m1 = self.getNeighbor(o)
             m0 = self.getPrevious(m1)
             m2 = self.getNext(m1)
             e = o
             while True:
-                self.addInternalEdgeDrivers(e, m0, m1, m2, 1, not left, False)
+                self.addInternalEdgeDrivers(e, m0, m1, m2, 1, left, False)
                 hide_select(m1, False)
                 e = self.getNext(e)
                 if e == o:
@@ -511,8 +518,18 @@ class Wall:
             self.addEndEdgeDrivers(end, m1, m2, True, left)
             hide_select(m2, False)
         
+        # 2) deal with segment empties
+        o = _o
+        neighbor = None
+        for obj in self.parent.children:
+            if obj.type == "EMPTY" and "t" in obj and obj["t"]=="ws":
+                hide_select(obj, False if obj["l"]==left else True)
+                # find the neighbor of <o> if <o> is a segment EMPTY 
+                if o["t"] == "ws" and not neighbor and obj["g"] == o["g"] and o!=obj:
+                    neighbor = obj
+        
         # select the neighbor of <o>
-        o = self.getNeighbor(o)
+        o = neighbor if neighbor else self.getNeighbor(o)
         o.select = True
         self.context.scene.objects.active = o       
             
@@ -541,6 +558,12 @@ class Wall:
     def getEmpty(self, group, left):
         prefix = "l" if left else "r"
         return self.mesh.modifiers[prefix+group].object
+    
+    def getCornerEmpty(self, o):
+        if o["t"] == "ws":
+            # get corner EMPTY object if the input was a segment EMPTY object
+            o = self.getEmpty(o["g"], o["l"])
+        return o
     
     def isClosed(self):
         return not "end" in self.mesh
