@@ -51,8 +51,7 @@ def getWidth(self):
     """Returns the width of the wall segment defined by an active segment EMPTY"""
     context = bpy.context
     o = context.scene.objects.active
-    wall = getWallFromEmpty(context, None, o)
-    return wall.getCornerEmpty(o)["w"]
+    return getWallFromEmpty(context, None, o).getWidth(o)
 
 
 def setWidth(self, value):
@@ -60,11 +59,20 @@ def setWidth(self, value):
     context = bpy.context
     o = context.scene.objects.active
     wall = getWallFromEmpty(context, None, o)
-    o = wall.getCornerEmpty(o)
-    o["w"] = value
-    wall.getNeighbor(o)["w"] = value
-    # a hack, without it the width of the related wall segment won't be updated
-    o.location = o.location
+    if context.window_manager.prk.widthForAllSegments:
+        closed = wall.isClosed()
+        if closed:
+            o = wall.getCornerEmpty(o)
+            e = o
+        else:
+            e = wall.getStart(o["l"])
+        while True:
+            wall.setWidth(e, value)
+            e = wall.getNext(e)
+            if (closed and e == o) or (not closed and e is None):
+                break
+    else:
+        wall.setWidth(o, value)
 
 
 class GuiWall:
@@ -75,7 +83,9 @@ class GuiWall:
         layout.operator("object.wall_flip_controls")
         o = context.scene.objects.active
         if o["t"] == "ws":
-            layout.prop(context.window_manager.prk, "wallSegmentWidth")
+            box = layout.box()
+            box.prop(context.window_manager.prk, "widthForAllSegments")
+            box.prop(context.window_manager.prk, "wallSegmentWidth")
 
 
 class Wall:
@@ -594,6 +604,16 @@ class Wall:
     
     def isClosed(self):
         return not "end" in self.mesh
+    
+    def getWidth(self, o):
+        return self.getCornerEmpty(o)["w"]
+    
+    def setWidth(self, o, value):
+        o = self.getCornerEmpty(o)
+        o["w"] = value
+        self.getNeighbor(o)["w"] = value
+        # a hack, without it the width of the related wall segment won't be updated
+        o.location = o.location
     
     def createCornerEmptyObject(self, name, location, hide):
         empty = createEmptyObject(name, location, hide, **self.emptyPropsCorner)

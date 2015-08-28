@@ -448,6 +448,11 @@ class PrkStudioProperties(bpy.types.PropertyGroup):
         set = setWidth,
         get = getWidth
     )
+    widthForAllSegments = bpy.props.BoolProperty(
+        name = "Width for all segments",
+        description = "Width for all segments",
+        default = False
+    )
 
 
 def register():
