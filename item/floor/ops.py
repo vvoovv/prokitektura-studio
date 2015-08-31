@@ -1,6 +1,6 @@
 import bpy, bgl
 
-from item.floor import Floor, getFloorObject
+from . import Floor, getFloorObject
 
 
 class FloorMake(bpy.types.Operator):

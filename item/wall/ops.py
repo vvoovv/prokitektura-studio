@@ -1,7 +1,7 @@
 import bpy
 
 from blender_util import cursor_2d_to_location_3d
-from .wall import Wall, getWallFromEmpty
+from . import Wall, getWallFromEmpty
 
 
 class WallEditAdd(bpy.types.Operator):

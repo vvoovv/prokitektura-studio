@@ -1,6 +1,6 @@
 import bpy, bmesh
 from blender_util import createMeshObject, getBmesh, assignGroupToVerts, addHookModifier
-from .wall import getWallFromEmpty
+from item.wall import getWallFromEmpty
 from base import zero
 
 
