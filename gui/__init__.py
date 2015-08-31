@@ -1,12 +1,9 @@
 from base import pContext
 from base import getLevelLocation
 
-import bpy, bgl
-from blender_util import cursor_2d_to_location_3d
+import bpy
 
-from base import pContext
-from item.wall import Wall, getWallFromEmpty, setWidth, getWidth
-from item.floor import Floor, getFloorObject
+from item.wall import setWidth, getWidth
 
 
 class PanelMain(bpy.types.Panel):
@@ -18,17 +15,7 @@ class PanelMain(bpy.types.Panel):
     def draw(self, context):
         prk = context.window_manager.prk
         layout = self.layout
-        
-        #layout.prop(wm, "newAtActive")
-        #layout.operator("object.wall_add")
-        #layout.operator("object.wall_extend")
-        #layout.operator("object.wall_complete")
-        #layout.separator()
-        #layout.operator("object.floor_begin")
-        #if wm.floorName:
-        #    layout.operator("object.floor_continue")
-        #    layout.operator("object.floor_finish")
-        
+                
         row = self.layout.split(0.6)
         row.label("Load a preset:")
         row.operator_menu_enum("scene.load_preset", "presetCollection")
@@ -111,131 +98,6 @@ class LoadPreset(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class WallEditAdd(bpy.types.Operator):
-    bl_idname = "object.wall_edit_add"
-    bl_label = "Add a new wall"
-    bl_description = "Adds a new wall"
-    bl_options = {"REGISTER", "UNDO"}
-    
-    length = bpy.props.FloatProperty(
-        name = "Length",
-        description = "The length of the wall segment",
-        default = 2,
-        min = 0.1,
-        max = 100,
-        unit = "LENGTH"
-    )
-    
-    def invoke(self, context, event):
-        locEnd = cursor_2d_to_location_3d(context, event)
-        wall = Wall(context, self, False)
-        constraint_axis = wall.create(locEnd)
-        bpy.ops.transform.translate('INVOKE_DEFAULT', constraint_axis=constraint_axis, constraint_orientation='LOCAL')
-        return {'FINISHED'}
-    
-
-class WallEditExtend(bpy.types.Operator):
-    bl_idname = "object.wall_edit_extend"
-    bl_label = "Extend the wall"
-    bl_description = "Extends the wall"
-    bl_options = {"REGISTER", "UNDO"}
-    
-    length = bpy.props.FloatProperty(
-        name = "Length",
-        description = "The length of the wall segment",
-        default = 2,
-        min = 0.1,
-        max = 100,
-        unit = "LENGTH"
-    )
-    
-    def invoke(self, context, event):
-        empty = context.object
-        locEnd = cursor_2d_to_location_3d(context, event)
-        wall = getWallFromEmpty(context, self, empty, True)
-        if not wall:
-            self.report({"ERROR"}, "To extend the wall, select an EMPTY object at either open end of the wall")
-            return {'FINISHED'}
-        constraint_axis = wall.extend(empty, locEnd)
-        bpy.ops.transform.translate('INVOKE_DEFAULT', constraint_axis=constraint_axis, constraint_orientation='LOCAL')
-        return {'FINISHED'}
-
-
-class WallAdd(bpy.types.Operator):
-    bl_idname = "object.wall_add"
-    bl_label = "Add a new wall"
-    bl_description = "Adds a new wall"
-    bl_options = {"REGISTER", "UNDO"}
-    
-    length = bpy.props.FloatProperty(
-        name = "Length",
-        description = "The length of the wall segment",
-        default = 2,
-        min = 0.1,
-        max = 100,
-        unit = "LENGTH"
-    )
-    
-    def execute(self, context):
-        Wall(context, self, True)
-        return {'FINISHED'}
-
-
-class WallExtend(bpy.types.Operator):
-    bl_idname = "object.wall_extend"
-    bl_label = "Extend the wall"
-    bl_description = "Extends the wall"
-    bl_options = {"REGISTER", "UNDO"}
-    
-    length = bpy.props.FloatProperty(
-        name = "Length",
-        description = "The length of the wall segment",
-        default = 2,
-        min = 0.1,
-        max = 100,
-        unit = "LENGTH"
-    )
-    
-    def execute(self, context):
-        empty = context.scene.objects.active
-        wall = getWallFromEmpty(context, self, empty, True)
-        if not wall:
-            self.report({"ERROR"}, "To extend the wall, select an EMPTY object at either open end of the wall")
-            return {'FINISHED'}
-        wall.extend(empty)
-        return {'FINISHED'}
-
-
-class WallComplete(bpy.types.Operator):
-    bl_idname = "object.wall_complete"
-    bl_label = "Complete the wall"
-    bl_description = "Completes the wall"
-    bl_options = {"REGISTER", "UNDO"}
-    
-    def execute(self, context):
-        empty = context.scene.objects.active
-        wall = getWallFromEmpty(context, self, empty)
-        if not wall:
-            self.report({"ERROR"}, "To complete the wall, select an EMPTY object belonging to the wall")
-        wall.complete(empty["l"])
-        return {'FINISHED'}
-
-
-class WallFlipControls(bpy.types.Operator):
-    bl_idname = "object.wall_flip_controls"
-    bl_label = "Flip control points for the wall"
-    bl_description = "Flips control points for the wall"
-    bl_options = {"REGISTER", "UNDO"}
-    
-    def execute(self, context):
-        empty = context.scene.objects.active
-        wall = getWallFromEmpty(context, self, empty)
-        if not wall:
-            self.report({"ERROR"}, "To flip control points for the wall, select an EMPTY object belonging to the wall")
-        wall.flipControls(empty)
-        return {'FINISHED'}
-
-
 class AddItem(bpy.types.Operator):
     bl_idname = "scene.add_item"
     bl_label = "Add an item..."
@@ -272,135 +134,6 @@ class AddItem(bpy.types.Operator):
         # Without bpy.ops.transform.translate() some complex stuff (some modifiers)
         # may not be initialized correctly
         bpy.ops.transform.translate()
-        return {'FINISHED'}
-    
-    
-class FloorMake(bpy.types.Operator):
-    bl_idname = "object.floor_make"
-    bl_label = "Make a floor for the wall"
-    bl_description = "Makes a floor for the wall defined by the selected point"
-    bl_options = {"REGISTER", "UNDO"}
-    
-    def execute(self, context):
-        empty = context.scene.objects.active
-        if not (empty and empty.type=="EMPTY" and empty.parent):
-            self.report({"ERROR"}, "To begin a floor, select an EMPTY object belonging to the wall")
-            return {'CANCELLED'}
-        floor = Floor(context, self)
-        floor.make(empty)
-        
-        return {'FINISHED'}
-    
-
-##################################
-### Floor stuff
-##################################
-
-def draw_callback_floor(op, context):
-    floor = getFloorObject(context)
-    if not floor:
-        # stop drawing
-        bpy.types.SpaceView3D.draw_handler_remove(op._handle, "WINDOW")
-        op._handle = None
-        return
-    bgl.glColor4f(0., 0., 1.0, 1.0)
-    bgl.glLineWidth(4)
-    bgl.glBegin(bgl.GL_LINE_STRIP)
-    for v in floor.data.vertices:
-        bgl.glVertex3f(*(floor.matrix_world*v.co))
-    bgl.glEnd()
-    
-
-
-def floor_begin(context, op):
-    empty = context.object
-    if not (empty and empty.type=="EMPTY" and empty.parent):
-        op.report({'ERROR'}, "To begin a floor, select an EMPTY object belonging to the wall")
-        return {'CANCELLED'}
-    Floor(context, op, empty)
-    
-
-def floor_continue(context, op, considerFinish):
-    empty = context.object
-    if not (empty and empty.type=="EMPTY" and empty.parent):
-        op.report({'ERROR'}, "To continue the floor, select an EMPTY object belonging to the wall")
-        return {'CANCELLED'}
-    # get Blender floor object
-    floorObj = getFloorObject(context)
-    # check we if empty has been already used for the floor
-    for m in floorObj.modifiers:
-        if m.type == "HOOK" and m.object == empty:
-            used = True
-            break
-    else:
-        used = False
-    if used:
-        if not considerFinish or len(floorObj.data.vertices)<3:
-            op.report({'ERROR'}, "The floor already has a vertex here, select another EMPTY object")
-            return {'CANCELLED'}
-        if considerFinish:
-            floor_finish(context, op)
-    else:
-        floor = Floor(context, op)
-        floor.extend(empty)
-        if not op._handle:
-            # start drawing
-            op._handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback_floor, (op, context), "WINDOW", "POST_VIEW")
-
-
-def floor_finish(context, op):
-    floor = Floor(context, op)
-    floor.finish()
-
-
-class FloorWork(bpy.types.Operator):
-    bl_idname = "object.floor_work"
-    bl_label = "Work on a floor"
-    bl_description = "Universal operator to begin, continue and finish a floor"
-    bl_options = {"REGISTER", "UNDO"}
-    
-    _handle = None
-    
-    def execute(self, context):
-        floor = getFloorObject(context)
-        if floor:
-            floor_continue(context, self, True)
-        else:
-            floor_begin(context, self)
-        
-        return {'FINISHED'}
-
-
-class FloorBegin(bpy.types.Operator):
-    bl_idname = "object.floor_begin"
-    bl_label = "Begin a floor"
-    bl_description = "Begins a floor from the selected point"
-    bl_options = {"REGISTER", "UNDO"}
-    
-    def execute(self, context):
-        floor_begin(context, self)
-        return {'FINISHED'}
-
-
-class FloorContinue(bpy.types.Operator):
-    bl_idname = "object.floor_continue"
-    bl_label = "Continue the floor"
-    bl_description = "Continues the floor with the selected point"
-    bl_options = {"REGISTER", "UNDO"}
-    
-    def execute(self, context):
-        floor_continue(context, self, False)
-        return {'FINISHED'}
-
-
-class FloorFinish(bpy.types.Operator):
-    bl_idname = "object.floor_finish"
-    bl_label = "Finish the floor"
-    bl_description = "Finishes the floor with the selected point"
-    bl_options = {"REGISTER", "UNDO"}
-    
-    def execute(self, context):
-        floor_finish(context, self)
         return {'FINISHED'}
 
 
