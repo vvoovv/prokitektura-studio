@@ -140,6 +140,7 @@ class Wall:
         parent = createOneVertObject("Wall", loc)
         # type
         parent["t"] = Wall.type
+        parent["container"] = 1
         parent.dupli_type = "VERTS"
         parent.hide_select = True
         

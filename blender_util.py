@@ -105,3 +105,17 @@ def cursor_2d_to_location_3d(context, event):
 def hide_select(o, value):
     o.hide = value
     o.hide_select = value
+
+
+def modifier_apply_all(o):
+    bpy.context.scene.objects.active = o
+    if o.data.users > 1:
+        o.hide_select = False
+        o.select = True
+        bpy.ops.object.make_single_user(obdata=True)
+        o.select = False
+    for m in o.modifiers:
+        #try:
+            bpy.ops.object.modifier_apply(modifier=m.name)
+        #except RuntimeError:
+        #    pass
