@@ -166,8 +166,8 @@ class Wall:
             ]
         else:
             v = [
-                (0., 0., 0.), (0., -w, 0.), (l, -w, 0.), (l, 0., 0.),
-                (0., 0., h), (0., -w, h), (l, -w, h), (l, 0., h)
+                (0., 0., 0.), (l, 0., 0.), (l, w, 0.), (0., w, 0.),
+                (0., 0., h), (l, 0., h), (l, w, h), (0., w, h)
             ] if alongX else [
                 (0., 0., 0.), (0., l, 0.), (-w, l, 0.), (-w, 0., 0.),
                 (0., 0., h), (0., l, h), (-w, l, h), (-w, 0., h)
@@ -222,10 +222,10 @@ class Wall:
             l1 = self.createCornerEmptyObject("l1", (l, 0., 0.) if alongX else (0., l, 0.), False)
             r1 = self.createCornerEmptyObject("r1", (l, -w, 0.) if alongX else (w, l, 0.), True)
         else:
-            l0 = self.createCornerEmptyObject("l0", (-w, 0., 0.), True)
-            r0 = self.createCornerEmptyObject("r0", (0., -w, 0.) if alongX else (0., 0., 0.), False)
-            l1 = self.createCornerEmptyObject("l1", (l, 0., 0.) if alongX else (-w, l, 0.), True)
-            r1 = self.createCornerEmptyObject("r1", (l, -w, 0.) if alongX else (0., l, 0.), False)
+            l0 = self.createCornerEmptyObject("l0", (0., w, 0.) if alongX else (-w, 0., 0.), True)
+            r0 = self.createCornerEmptyObject("r0", (0., 0., 0.), False)
+            l1 = self.createCornerEmptyObject("l1", (l, w, 0.) if alongX else (-w, l, 0.), True)
+            r1 = self.createCornerEmptyObject("r1", (l, 0., 0.) if alongX else (0., l, 0.), False)
         
         setCustomAttributes(l0, l=1, e=0, g="0", w=w, n="1")
         setCustomAttributes(r0, l=0, e=0, g="0", w=w, n="1")
