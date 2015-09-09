@@ -82,7 +82,7 @@ class GuiWall:
         layout.separator()
         layout.operator("object.wall_flip_controls")
         o = context.scene.objects.active
-        if o["t"] == "ws":
+        if o["t"] == "ws" or o["t"] == "wc":
             box = layout.box()
             box.prop(context.window_manager.prk, "widthForAllSegments")
             box.prop(context.window_manager.prk, "wallSegmentWidth")
@@ -613,6 +613,19 @@ class Wall:
         o = self.getCornerEmpty(o)
         o["w"] = value
         self.getNeighbor(o)["w"] = value
+        # treat the special case when o is at the starting EMPTY or just after the starting EMPTY
+        if not self.isClosed():
+            if "e" in o and o["e"] == 0:
+                # set the width for the next EMPTY
+                o = self.getNext(o)
+                o["w"] = value
+                self.getNeighbor(o)["w"] = value
+            else:
+                # set the width for the starting EMPTY
+                o = self.getPrevious(o)
+                if "e" in o and o["e"] == 0:
+                    o["w"] = value
+                    self.getNeighbor(o)["w"] = value
         # a hack, without it the width of the related wall segment won't be updated
         o.location = o.location
     
@@ -809,6 +822,18 @@ class Wall:
         addSinglePropVariable(y, "w2" if end else "w1", m2 if end else m1, "[\"w\"]")
         # expression
         y.driver.expression = "y" +sign1+ "w2*(x1-x2)/max(d2,0.001)" +sign2+ "(w1-w2*((x1-x0)*(x2-x1)+(y1-y0)*(y2-y1))/max(d1,0.001)/max(d2,0.001)) * (y2-y1) * d1 / ((x1-x0)*(y2-y1)-(y1-y0)*(x2-x1) if abs((x1-x0)*(y2-y1)-(y1-y0)*(x2-x1))>0.001 else 0.001)"
+    
+    def resetHookModifiers(self):
+        objects = bpy.context.scene.objects
+        mesh = self.mesh
+        # keep a reference to the current active object
+        active = objects.active
+        objects.active = mesh
+        for m in mesh.modifiers:
+            if m.type == "HOOK":
+                bpy.ops.object.modifier_apply(modifier=m.name)
+        # restore the original active object
+        objects.active = active
 
 
 pContext.registerGui(Wall, GuiWall)

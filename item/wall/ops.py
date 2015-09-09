@@ -127,3 +127,18 @@ class WallFlipControls(bpy.types.Operator):
             self.report({"ERROR"}, "To flip control points for the wall, select an EMPTY object belonging to the wall")
         wall.flipControls(empty)
         return {'FINISHED'}
+
+
+class WallAdjoiningStart(bpy.types.Operator):
+    bl_idname = "object.wall_adjoining_start"
+    bl_label = "Start an adjoing wall"
+    bl_description = "Start a wall adjoing to the selected wall segment"
+    bl_options = {"REGISTER", "UNDO"}
+    
+    def execute(self, context):
+        empty = context.scene.objects.active
+        wall = getWallFromEmpty(context, self, empty)
+        if not wall:
+            self.report({"ERROR"}, "Select two consequent EMPTY objects belonging to the wall")
+        wall.resetHookModifiers()
+        return {'FINISHED'}

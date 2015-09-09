@@ -53,6 +53,8 @@ def register():
     km.keymap_items.new("object.floor_make", "F", "PRESS", ctrl=True)
     # shortcut to work on a floor
     km.keymap_items.new("object.floor_work", "F", "PRESS")
+    # shortcut to create an adjoing wall
+    km.keymap_items.new("object.wall_adjoining_start", "D", "PRESS", ctrl=True)
     #kmi.properties.name = ""
     keymap = km
         
