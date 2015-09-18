@@ -44,6 +44,7 @@ def addHookModifier(obj, name, hookObj, vertexGroup):
     m = obj.modifiers.new(name=name, type='HOOK')
     m.vertex_group = vertexGroup
     m.object = hookObj
+    return m
     
 
 def createPolyCurve(name, location, points):

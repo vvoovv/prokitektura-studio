@@ -829,9 +829,23 @@ class Wall:
         # keep a reference to the current active object
         active = objects.active
         objects.active = mesh
+        # modifier index in the list of modifiers
+        i = 0
+        data = []
         for m in mesh.modifiers:
             if m.type == "HOOK":
+                data.append((i, m.name, m.object))
                 bpy.ops.object.modifier_apply(modifier=m.name)
+            i += 1
+        # recreate the modifiers and move them to the original position in the list of modifiers
+        i = len(mesh.modifiers)
+        for m in data:
+            # add a modifier and keep in <m> tuple
+            name = m[1]
+            addHookModifier(mesh, name, m[2], name)
+            for _ in range(m[0], i):
+                bpy.ops.object.modifier_move_up(modifier=name)
+            i += 1
         # restore the original active object
         objects.active = active
 
