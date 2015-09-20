@@ -848,6 +848,90 @@ class Wall:
             i += 1
         # restore the original active object
         objects.active = active
+    
+    def startAdjoiningWall(self, o):
+        l = 0.3 # relative location of the adjoining wall
+        o = self.getCornerEmpty(o)
+        bm = getBmesh(self.mesh)
+        prefix = "l" if o["l"] else "r"
+        v1 = self.getVertsForVertexGroup(bm, prefix+o["g"])
+        _v1 = self.getVertsForVertexGroup(bm, prefix+self.getPrevious(o)["g"])
+        # verts for the opposite side of the wall
+        _o = self.getNeighbor(o)
+        prefix = "l" if _o["l"] else "r"
+        v2 = self.getVertsForVertexGroup(bm, prefix+_o["g"])
+        _v2 = self.getVertsForVertexGroup(bm, prefix+self.getPrevious(_o)["g"])
+        bmesh.ops.delete(
+            bm,
+            geom=(
+                getFaceFortVerts(_v1, v1),
+                getFaceFortVerts(_v2, v2),
+                getFaceFortVerts( (v1[0], v2[0]), (_v1[0], _v2[0]) ),
+                getFaceFortVerts( (v1[1], v2[1]), (_v1[1], _v2[1]) )
+            ),
+            context=5
+        )
+        # create the loop cuts for the adjoining wall
+        context = self.context
+        prk = context.window_manager.prk
+        atRight = prk.wallAtRight
+        w = prk.newWallWidth
+        
+        l1 = l*(v1[0].co-_v1[0].co)
+        
+        w = w*l1.normalized()
+        
+        _u1 = (
+            bm.verts.new(_v1[0].co + l1),
+            bm.verts.new(_v1[1].co + l1)
+        )
+        u1 = (
+            bm.verts.new(_v1[0].co + l1 + w),
+            bm.verts.new(_v1[1].co + l1 + w)
+        )
+        
+        # perpendicular to the wall segment with the length equal to the width of the wall segment
+        n = o["w"]*l1.cross(zAxis).normalized()
+        if not o["l"]:
+            n = -n
+        
+        l2 = _v1[0].co - _v2[0].co + l1 + n
+        _u2 = (
+            bm.verts.new(_v2[0].co + l2),
+            bm.verts.new(_v2[1].co + l2)
+        )
+        u2 = (
+            bm.verts.new(_v2[0].co + l2 + w),
+            bm.verts.new(_v2[1].co + l2 + w)
+        )
+        
+        # left
+        bm.faces.new((_v1[0], _v1[1], _u1[1], _u1[0]))
+        bm.faces.new((_u1[0], _u1[1], u1[1], u1[0]))
+        bm.faces.new((u1[0], u1[1], v1[1], v1[0]))
+        # right
+        bm.faces.new((_u2[0], _u2[1], _v2[1], _v2[0]))
+        bm.faces.new((u2[0], u2[1], _u2[1], _u2[0]))
+        bm.faces.new((v2[0], v2[1], u2[1], u2[0]))
+        # top
+        bm.faces.new((_v2[1], _u2[1], _u1[1], _v1[1]))
+        bm.faces.new((_u2[1], u2[1], u1[1], _u1[1]))
+        bm.faces.new((u2[1], v2[1], v1[1], u1[1]))
+        # bottom
+        bm.faces.new((_v1[0], _u1[0], _u2[0], _v2[0]))
+        bm.faces.new((_u1[0], u1[0], u2[0], _u2[0]))
+        bm.faces.new((u1[0], v1[0], v2[0], u2[0]))
+        
+        # apply changes to bmesh
+        bm.to_mesh(self.mesh.data)
+        bm.free()
+        # delete the related segment EMPTYs
+        bpy.ops.object.select_all(action="DESELECT")
+        for obj in self.parent.children:
+            if obj.type == "EMPTY" and "t" in obj and obj["t"]=="ws" and obj["g"] == o["g"]:
+                hide_select(obj, True)
+                obj.select = True
+        bpy.ops.object.delete()
 
 
 pContext.registerGui(Wall, GuiWall)

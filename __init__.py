@@ -19,7 +19,7 @@ def _checkPath():
         sys.path.append(path)
 _checkPath()
 
-import base, gui, item
+import base, gui, item, item.wall
 import metro
 if "bpy" in locals():
     import imp
@@ -27,6 +27,7 @@ if "bpy" in locals():
     imp.reload(gui)
     imp.reload(item)
     imp.reload(metro)
+    imp.reload(item.wall)
 
 import bpy
 
@@ -57,7 +58,7 @@ def register():
     km.keymap_items.new("object.wall_adjoining_start", "D", "PRESS", ctrl=True)
     #kmi.properties.name = ""
     keymap = km
-        
+
 
 def unregister():
     gui.unregister()

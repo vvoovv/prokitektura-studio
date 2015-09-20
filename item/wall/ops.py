@@ -141,4 +141,5 @@ class WallAdjoiningStart(bpy.types.Operator):
         if not wall:
             self.report({"ERROR"}, "Select two consequent EMPTY objects belonging to the wall")
         wall.resetHookModifiers()
+        wall.startAdjoiningWall(empty)
         return {'FINISHED'}
