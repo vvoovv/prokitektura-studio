@@ -135,11 +135,12 @@ class WallAdjoiningStart(bpy.types.Operator):
     bl_description = "Start a wall adjoing to the selected wall segment"
     bl_options = {"REGISTER", "UNDO"}
     
-    def execute(self, context):
+    def invoke(self, context, event):
         empty = context.scene.objects.active
         wall = getWallFromEmpty(context, self, empty)
         if not wall:
             self.report({"ERROR"}, "Select two consequent EMPTY objects belonging to the wall")
         wall.resetHookModifiers()
-        wall.startAdjoiningWall(empty)
+        locEnd = cursor_2d_to_location_3d(context, event)
+        wall.startAdjoiningWall(empty, locEnd)
         return {'FINISHED'}
