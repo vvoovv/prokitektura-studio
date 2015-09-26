@@ -2,6 +2,7 @@ import bpy
 
 from blender_util import cursor_2d_to_location_3d
 from . import Wall, getWallFromEmpty
+from base.mover import Mover
 
 
 class WallEditAdd(bpy.types.Operator):
@@ -142,5 +143,6 @@ class WallAdjoiningStart(bpy.types.Operator):
             self.report({"ERROR"}, "Select two consequent EMPTY objects belonging to the wall")
         wall.resetHookModifiers()
         locEnd = cursor_2d_to_location_3d(context, event)
-        wall.startAdjoiningWall(empty, locEnd)
+        e = wall.startAdjoiningWall(empty, locEnd)
+        Mover(context, wall, e)
         return {'FINISHED'}

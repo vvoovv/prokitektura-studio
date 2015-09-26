@@ -860,34 +860,35 @@ class Wall:
         o = self.getCornerEmpty(o)
         
         locEnd.z = 0.
+        # convert the end location to the coordinate system of the wall
+        locEnd = self.parent.matrix_world.inverted() * locEnd
         vec = self.getPrevious(o).location
         # Will the adjoining wall be located on the left side (True) or on the right one (False)
         # relative to the original wall segment? This is defined by relative position
-        #
         left = True if (o.location - vec).cross(locEnd - vec)[2]>=0 else False
-        l = 0.3 # relative location of the adjoining wall
         
         context = self.context
         prk = context.window_manager.prk
         atRight = prk.wallAtRight
         w = prk.newWallWidth
+        _w = w
         
         mesh = self.mesh
         counter = mesh["counter"] + 1
         group = str(counter)
-        group1 = ("l" if o["l"] else "r") + group
-        group2 = ("r" if o["l"] else "l") + group
         bm = getBmesh(mesh)
         layer = bm.verts.layers.deform[0]
         prefix = "l" if o["l"] else "r"
         
+        prev = self.getPrevious(o)["g"]
+        
         v1 = self.getVertsForVertexGroup(bm, prefix+o["g"])
-        _v1 = self.getVertsForVertexGroup(bm, prefix+self.getPrevious(o)["g"])
+        _v1 = self.getVertsForVertexGroup(bm, prefix+prev)
         # verts for the opposite side of the wall
         _o = self.getNeighbor(o)
         prefix = "l" if _o["l"] else "r"
         v2 = self.getVertsForVertexGroup(bm, prefix+_o["g"])
-        _v2 = self.getVertsForVertexGroup(bm, prefix+self.getPrevious(_o)["g"])
+        _v2 = self.getVertsForVertexGroup(bm, prefix+prev)
         bmesh.ops.delete(
             bm,
             geom=(
@@ -899,12 +900,9 @@ class Wall:
             context=5
         )
         # create the loop cuts for the adjoining wall
-        l1 = l*(v1[0].co-_v1[0].co)
-        
-        w = w*l1.normalized()
-        
-        condition = (left and atRight) or (not left and not atRight)
-        l1 = l1 if condition else l1-w
+        # position the adjoining wall at the middle of the wall segment
+        w = w*(v1[0].co-_v1[0].co).normalized()
+        l1 = 0.5*(v1[0].co-_v1[0].co) - 0.5*w
         
         _u1 = (
             bm.verts.new(_v1[0].co + l1),
@@ -914,7 +912,7 @@ class Wall:
             bm.verts.new(_v1[0].co + l1 + w),
             bm.verts.new(_v1[1].co + l1 + w)
         )
-        assignGroupToVerts(mesh, layer, group1, _u1[0], _u1[1], u1[0], u1[1])
+        #assignGroupToVerts(mesh, layer, group, _u1[0], _u1[1], u1[0], u1[1])
         
         # perpendicular to the wall segment with the length equal to the width of the wall segment
         n = o["w"]*l1.cross(zAxis).normalized()
@@ -930,7 +928,7 @@ class Wall:
             bm.verts.new(_v2[0].co + l2 + w),
             bm.verts.new(_v2[1].co + l2 + w)
         )
-        assignGroupToVerts(mesh, layer, group2, _u2[0], _u2[1], u2[0], u2[1])
+        assignGroupToVerts(mesh, layer, group, _u1[0], _u1[1], u1[0], u1[1], _u2[0], _u2[1], u2[0], u2[1])
         
         # left
         bm.faces.new((_v1[0], _v1[1], _u1[1], _u1[0]))
@@ -951,6 +949,7 @@ class Wall:
         bm.faces.new((_u1[0], u1[0], u2[0], _u2[0]))
         bm.faces.new((u1[0], v1[0], v2[0], u2[0]))
         
+        condition = (left and atRight) or (not left and not atRight)
         loc1 = (_u1 if condition else u1)[0].co
         loc2 = (_u2 if condition else u2)[0].co
         
@@ -960,11 +959,11 @@ class Wall:
         bm.free()
         
         condition = (left and o["l"]) or (not left and not o["l"])
-        e1 = self.createAdjoiningEmptyObject(group1, loc1, False if condition else True)
-        setCustomAttributes(e1, l=1 if atRight else 0, g=group, w=w)
+        e1 = self.createAdjoiningEmptyObject(("l" if o["l"] else "r") + group, loc1, False if condition else True)
+        setCustomAttributes(e1, l=1 if atRight else 0, g=group, w=_w, p=prev, n=o["g"])
         
-        e2 = self.createAdjoiningEmptyObject(group2, loc2, False if not condition else True)
-        setCustomAttributes(e2, l=1 if atRight else 0, g=group, w=w)
+        e2 = self.createAdjoiningEmptyObject(("r" if o["l"] else "l") + group, loc2, False if not condition else True)
+        setCustomAttributes(e2, l=1 if atRight else 0, g=group, w=_w, p=prev, n=o["g"])
         
         context.scene.update()
         
@@ -972,9 +971,10 @@ class Wall:
         
         context.scene.update()
         
+        active = e1 if condition else e2
+        
         # add hook modifiers
-        addHookModifier(mesh, group1, e1, group1)
-        addHookModifier(mesh, group2, e2, group2)
+        addHookModifier(mesh, group, active, group)
                 
         # delete the related segment EMPTYs
         bpy.ops.object.select_all(action="DESELECT")
@@ -983,6 +983,8 @@ class Wall:
                 hide_select(obj, True)
                 obj.select = True
         bpy.ops.object.delete()
+        
+        return active
 
 
 pContext.registerGui(Wall, GuiWall)
