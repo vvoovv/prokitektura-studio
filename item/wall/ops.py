@@ -143,6 +143,8 @@ class WallAdjoiningStart(bpy.types.Operator):
             self.report({"ERROR"}, "Select two consequent EMPTY objects belonging to the wall")
         wall.resetHookModifiers()
         locEnd = cursor_2d_to_location_3d(context, event)
+        empty = wall.getCornerEmpty(empty)
+        # wall.startAdjoiningWall(empty, locEnd) returns segment EMPTY
         e = wall.startAdjoiningWall(empty, locEnd)
-        Mover(context, wall, e)
+        Mover(getWallFromEmpty(context, self, e), e, wall.getPrevious(empty), empty)
         return {'FINISHED'}

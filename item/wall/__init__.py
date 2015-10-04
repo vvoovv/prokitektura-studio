@@ -9,7 +9,7 @@ def getWallFromEmpty(context, op, empty, end=False):
     if not (empty and empty.type == "EMPTY" and (not end or "e" in empty)):
         return None
     wall = Wall(context, op, False)
-    wall.init(empty.parent)
+    wall.init(empty.parent, empty)
     return wall
 
 
@@ -103,11 +103,12 @@ class Wall:
         if create:
             self.create()
     
-    def init(self, parent):
+    def init(self, parent, o):
+        meshIndex = o["m"]
         self.parent = parent
         # getting mesh object
         for obj in parent.children:
-            if obj.type == "MESH":
+            if obj.type == "MESH" and obj["m"] == meshIndex:
                 self.mesh = obj
                 break
     
@@ -143,12 +144,14 @@ class Wall:
         parent["container"] = 1
         parent.dupli_type = "VERTS"
         parent.hide_select = True
+        meshIndex = 2
+        parent["counter"] = meshIndex
         
         obj = createMeshObject("wall_mesh")
-        obj["counter"] = 1
         obj["height"] = h
         obj["start"] = "0"
         obj["end"] = "1"
+        obj["m"] = meshIndex
         obj.hide_select = True
         
         bm = getBmesh(obj)
@@ -191,7 +194,7 @@ class Wall:
         # back face
         bm.faces.new((v[3], v[7], v[6], v[2]))
         
-        # create vertex groups for each vertical wall edge and empty object as a wall controller
+        # create vertex groups for each vertical wall edge
         if atRight:
             # for the wall origin
             assignGroupToVerts(obj, layer, "l0", v[0], v[4])
@@ -216,6 +219,7 @@ class Wall:
         # p means previous
         # g means group to identify the related modifier and vertex group
         # w means width
+        # m means mesh index
         if atRight:
             l0 = self.createCornerEmptyObject("l0", (0., 0., 0.), False)
             r0 = self.createCornerEmptyObject("r0", (0., -w, 0.) if alongX else (w, 0., 0.), True)
@@ -227,10 +231,10 @@ class Wall:
             l1 = self.createCornerEmptyObject("l1", (l, w, 0.) if alongX else (-w, l, 0.), True)
             r1 = self.createCornerEmptyObject("r1", (l, 0., 0.) if alongX else (0., l, 0.), False)
         
-        setCustomAttributes(l0, l=1, e=0, g="0", w=w, n="1")
-        setCustomAttributes(r0, l=0, e=0, g="0", w=w, n="1")
-        setCustomAttributes(l1, l=1, e=1, g="1", w=w, p="0")
-        setCustomAttributes(r1, l=0, e=1, g="1", w=w, p="0")
+        setCustomAttributes(l0, l=1, e=0, g="0", w=w, n="1", m=meshIndex)
+        setCustomAttributes(r0, l=0, e=0, g="0", w=w, n="1", m=meshIndex)
+        setCustomAttributes(l1, l=1, e=1, g="1", w=w, p="0", m=meshIndex)
+        setCustomAttributes(r1, l=0, e=1, g="1", w=w, p="0", m=meshIndex)
         
         # without scene.update() parenting and hook modifiers will not work correctly
         context.scene.update()
@@ -256,9 +260,11 @@ class Wall:
             self.addEndEdgeDrivers(l0, r0, r1, False, atRight)
             self.addEndEdgeDrivers(l1, r0, r1, True, atRight)
             
-        # create Blender EMPTY objects that for the initial wall segment:
-        self.createSegmentEmptyObject(l0, l1, parent, False if atRight else True)
-        self.createSegmentEmptyObject(r0, r1, parent, True if atRight else False)
+        # create Blender EMPTY objects for the initial wall segment:
+        _l = self.createSegmentEmptyObject(l0, l1, parent, False if atRight else True)
+        _r = self.createSegmentEmptyObject(r0, r1, parent, True if atRight else False)
+        setCustomAttributes(_l, l=1, m=meshIndex)
+        setCustomAttributes(_r, l=0, m=meshIndex)
         
         bpy.ops.object.select_all(action="DESELECT")
         if atRight:
@@ -271,18 +277,21 @@ class Wall:
     
     def extend(self, empty1, locEnd = None):
         
+        parent = self.parent
+        
         alongX = False
         alongY = False
         
         if locEnd:
             # convert the end location to the coordinate system of the wall
-            locEnd = self.parent.matrix_world.inverted() * locEnd
+            locEnd = parent.matrix_world.inverted() * locEnd
         
         empty2 = self.getNeighbor(empty1)
         context = self.context
         op = self.op
         mesh = self.mesh
-        counter = mesh["counter"] + 1
+        meshIndex = mesh["m"]
+        counter = parent["counter"] + 1
         group = str(counter)
         # are we at the end (1) or at the start (0)
         end = empty1["e"]
@@ -331,7 +340,7 @@ class Wall:
         
         loc = empty1.location + l*n
         e1 = self.createCornerEmptyObject(group1, loc, False)
-        setCustomAttributes(e1, l=1 if left else 0, e=end, g=group, w=w)
+        setCustomAttributes(e1, l=1 if left else 0, e=end, g=group, w=w, m=meshIndex)
         if end:
             setCustomAttributes(e1, p=empty1["g"])
             setCustomAttributes(empty1, n=group)
@@ -348,7 +357,7 @@ class Wall:
         if not end:
             n = -n
         e2 = self.createCornerEmptyObject(group2, loc + w*n, True)
-        setCustomAttributes(e2, l=0 if left else 1, e=end, g=group, w=w)
+        setCustomAttributes(e2, l=0 if left else 1, e=end, g=group, w=w, m=meshIndex)
         if end:
             setCustomAttributes(e2, p=empty1["g"])
             setCustomAttributes(empty2, n=group)
@@ -376,7 +385,7 @@ class Wall:
         assignGroupToVerts(mesh, layer, group1, v1_1, v1_2)
         assignGroupToVerts(mesh, layer, group2, v2_1, v2_2)
         
-        mesh["counter"] = counter
+        parent["counter"] = counter
         if end:
             mesh["end"] = group
         else:
@@ -389,7 +398,7 @@ class Wall:
         context.scene.update()
         
         # perform parenting
-        parent_set((e1, e2), self.parent)
+        parent_set((e1, e2), parent)
         
         # without scene.update() parenting and hook modifiers will not work correctly
         context.scene.update()
@@ -406,11 +415,13 @@ class Wall:
 
         # create Blender EMPTY objects for the just created wall segment:
         if end:
-            self.createSegmentEmptyObject(empty1, e1, self.parent, False)
-            self.createSegmentEmptyObject(empty2, e2, self.parent, True)
+            s1 = self.createSegmentEmptyObject(empty1, e1, self.parent, False)
+            s2 = self.createSegmentEmptyObject(empty2, e2, self.parent, True)
         else:
-            self.createSegmentEmptyObject(e1, empty1, self.parent, False)
-            self.createSegmentEmptyObject(e2, empty2, self.parent, True)
+            s1 = self.createSegmentEmptyObject(e1, empty1, self.parent, False)
+            s2 = self.createSegmentEmptyObject(e2, empty2, self.parent, True)
+        setCustomAttributes(s1, m=meshIndex)
+        setCustomAttributes(s2, m=meshIndex)
         
         bpy.ops.object.select_all(action="DESELECT")
         e1.select = True
@@ -420,6 +431,7 @@ class Wall:
     
     def complete(self, left):
         mesh = self.mesh
+        meshIndex = mesh["m"]
         start = self.getStart(left)
         end = self.getEnd(left)
         
@@ -471,8 +483,10 @@ class Wall:
         del start["e"], end["e"]
 
         # create Blender EMPTY objects for the just created wall segment:
-        self.createSegmentEmptyObject(end, start, self.parent, start.hide)
-        self.createSegmentEmptyObject(self.getNeighbor(end), self.getNeighbor(start), self.parent, not start.hide)
+        s1 = self.createSegmentEmptyObject(end, start, self.parent, start.hide)
+        s2 = self.createSegmentEmptyObject(self.getNeighbor(end), self.getNeighbor(start), self.parent, not start.hide)
+        setCustomAttributes(s1, m=meshIndex)
+        setCustomAttributes(s2, m=meshIndex)
     
     def flipControls(self, o):
         left = o["l"]
@@ -784,6 +798,127 @@ class Wall:
             i += 1
         # restore the original active object
         objects.active = active
+        
+    def startAdjoiningWall(self, o, locEnd):
+        parent = self.parent
+        o = self.getCornerEmpty(o)
+        
+        locEnd.z = 0.
+        # convert the end location to the coordinate system of the wall
+        locEnd = parent.matrix_world.inverted() * locEnd
+        _v = self.getPrevious(o).location
+        v = o.location
+        # vector along the current wall segment
+        u = (v - _v).normalized()
+        # Will the adjoining wall be located on the left side (True) or on the right one (False)
+        # relative to the original wall segment? This is defined by relative position
+        left = True if u.cross(locEnd - _v)[2]>=0 else False
+        
+        if (left and not o["l"]) or (not left and o["l"]):
+            # the adjoining wall to be created can't cross the current wall segment!
+            o = self.getNeighbor(o)
+            _v = self.getPrevious(o).location
+            v = o.location
+        
+        context = self.context
+        prk = context.window_manager.prk
+        atRight = prk.wallAtRight
+        w = prk.newWallWidth
+        h = prk.newWallHeight
+        H = h*zAxis
+        
+        # normal to the current wall segment in the direction of the adjoining wall to be created
+        n = ( zAxis.cross(u) if left else u.cross(zAxis) ).normalized()
+        # normal with the length equal to the length of the adjoining wall defined by locEnd
+        N = n.dot(locEnd-_v)*n
+        # verts of the adjoing wall along the current wall segment
+        _u = 0.5*(v+_v) - 0.5*w*u
+        u = 0.5*(v+_v) + 0.5*w*u
+        verts = [
+            _u, u, u+N, _u+N,
+            _u+H, u+H, u+N+H, _u+N+H 
+        ]
+        
+        counter = parent["counter"] + 1
+        group0 = str(counter)
+        group1 = str(counter+1)
+        
+        obj = createMeshObject("wall_mesh")
+        meshIndex = counter+2
+        obj["m"] = meshIndex
+        obj["height"] = h
+        obj["start"] = group0
+        obj["end"] = group1
+        obj.hide_select = True
+        bm = getBmesh(obj)
+        # vertex groups are in the deform layer, create one before any operation with bmesh:
+        layer = bm.verts.layers.deform.new()
+        
+        l0 = self.createCornerEmptyObject("l"+group0, verts[0] if left else verts[1], False if atRight else True)
+        r0 = self.createCornerEmptyObject("r"+group0, verts[1] if left else verts[0], True if atRight else False)
+        l1 = self.createCornerEmptyObject("l"+group1, verts[3] if left else verts[2], False if atRight else True)
+        r1 = self.createCornerEmptyObject("r"+group1, verts[2] if left else verts[3], True if atRight else False)
+        
+        setCustomAttributes(l0, l=1, e=0, g=group0, w=w, n=group1, m=meshIndex)
+        setCustomAttributes(r0, l=0, e=0, g=group0, w=w, n=group1, m=meshIndex)
+        setCustomAttributes(l1, l=1, e=1, g=group1, w=w, p=group0, m=meshIndex)
+        setCustomAttributes(r1, l=0, e=1, g=group0, w=w, p=group0, m=meshIndex)
+        
+        for i in range(len(verts)):
+            verts[i] = bm.verts.new(verts[i])
+        
+        # bottom
+        bm.faces.new( (verts[0], verts[3], verts[2], verts[1]) if left else (verts[1], verts[2], verts[3], verts[0]) )
+        # top
+        bm.faces.new( (verts[5], verts[6], verts[7], verts[4]) if left else (verts[4], verts[7], verts[6], verts[5]) )
+        # front
+        bm.faces.new( (verts[0], verts[4], verts[7], verts[3]) if left else (verts[0], verts[3], verts[7], verts[4]) )
+        # back
+        bm.faces.new( (verts[1], verts[2], verts[6], verts[5]) if left else (verts[1], verts[5], verts[6], verts[2]) )
+        # left
+        bm.faces.new( (verts[3], verts[7], verts[6], verts[2]) if left else (verts[0], verts[4], verts[5], verts[1]) )
+        # right
+        bm.faces.new( (verts[1], verts[5], verts[4], verts[0]) if left else (verts[2], verts[6], verts[7], verts[3]) )
+        
+        # create vertex groups for each vertical wall edge
+        # for the wall origin
+        assignGroupToVerts(obj, layer, "l"+group0, *((verts[0], verts[4]) if left else (verts[1], verts[5])) )
+        assignGroupToVerts(obj, layer, "r"+group0, *((verts[1], verts[5]) if left else (verts[0], verts[4])) )
+        # for the wall end
+        assignGroupToVerts(obj, layer, "l"+group1, *((verts[3], verts[7]) if left else (verts[2], verts[6])) )
+        assignGroupToVerts(obj, layer, "r"+group1, *((verts[2], verts[6]) if left else (verts[3], verts[7])) )
+        
+        parent["counter"] = counter+2
+
+        bm.to_mesh(obj.data)
+        bm.free()
+        
+        context.scene.update()
+        # perform parenting
+        parent_set((obj, l0, r0, l1, r1), parent)
+        context.scene.update()
+        
+        # add hook modifiers
+        addHookModifier(obj, "l"+group0, l0, "l"+group0)
+        addHookModifier(obj, "r"+group0, r0, "r"+group0)
+        addHookModifier(obj, "l"+group1, l1, "l"+group1)
+        addHookModifier(obj, "r"+group1, r1, "r"+group1)
+        
+        # add drivers
+        if atRight:
+            self.addEndEdgeDrivers(r0, l0, l1, False, atRight)
+            self.addEndEdgeDrivers(r1, l0, l1, True, atRight)
+        else:
+            self.addEndEdgeDrivers(l0, r0, r1, False, atRight)
+            self.addEndEdgeDrivers(l1, r0, r1, True, atRight)
+            
+        # create Blender EMPTY objects for the adjoining wall segment:
+        lEmpty = self.createSegmentEmptyObject(l0, l1, parent, False if atRight else True)
+        rEmpty = self.createSegmentEmptyObject(r0, r1, parent, True if atRight else False)
+        setCustomAttributes(lEmpty, m=meshIndex)
+        setCustomAttributes(rEmpty, m=meshIndex)
+        
+        return lEmpty if atRight else rEmpty
 
 
 pContext.registerGui(Wall, GuiWall)
