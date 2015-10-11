@@ -40,6 +40,55 @@ def addLocDiffVariable(driver, name, id0, id1):
         v.targets[1].transform_space = "LOCAL_SPACE"
 
 
+def addSegmentDrivers(e, e0, e1):
+    # add driver for empty.location.x
+    x = e.driver_add("location", 0)
+    # x0
+    addTransformsVariable(x, "x0", e0, "LOC_X")
+    # x1
+    addTransformsVariable(x, "x1", e1, "LOC_X")
+    # expression
+    x.driver.expression = "(x0+x1)/2."
+    
+    # add driver for empty.location.y
+    y = e.driver_add("location", 1)
+    # y0
+    addTransformsVariable(y, "y0", e0, "LOC_Y")
+    # y1
+    addTransformsVariable(y, "y1", e1, "LOC_Y")
+    # expression
+    y.driver.expression = "(y0+y1)/2."
+
+
+def addAttachedDrivers(wallAttached, o1, o2, e1, e2):
+    # width of the attached wall segment
+    w = o2["w"]
+    # neighbor of <o1>
+    _o1 = wallAttached.getNeighbor(o1)
+    # delete corner drivers
+    o1.driver_remove("location")
+    _o1.driver_remove("location")
+    
+    # Create drives that keep <o1> always located on the wall segment defined by <e1> and <e2> and
+    # distance between <e1> and <o1> constant
+    
+    # distance between <e1> and <o1>
+    l = (o1.location-e1.location).length
+    
+    # x
+    x = o1.driver_add("location", 0)
+    addTransformsVariable(x, "x1", e1, "LOC_X")
+    addTransformsVariable(x, "x2", e2, "LOC_X")
+    addLocDiffVariable(x, "d", e1, e2)
+    x.driver.expression = "x1+" + str(l) + "*(x2-x1)/max(d,0.001)"
+    # y
+    y = o1.driver_add("location", 1)
+    addTransformsVariable(y, "y1", e1, "LOC_Y")
+    addTransformsVariable(y, "y2", e2, "LOC_Y")
+    addLocDiffVariable(y, "d", e1, e2)
+    y.driver.expression = "y1+" + str(l) + "*(y2-y1)/max(d,0.001)"
+
+
 def getFaceFortVerts(verts1, verts2):
     # find the common face for both verts1 and verts2
     for face in verts1[0].link_faces:
@@ -220,6 +269,7 @@ class Wall:
         # g means group to identify the related modifier and vertex group
         # w means width
         # m means mesh index
+        # al (for an attached wall only) informs if the wall is attached to the left (1) or to the right (0)
         if atRight:
             l0 = self.createCornerEmptyObject("l0", (0., 0., 0.), False)
             r0 = self.createCornerEmptyObject("r0", (0., -w, 0.) if alongX else (w, 0., 0.), True)
@@ -646,31 +696,15 @@ class Wall:
         # ws stands for "wall segment"
         setCustomAttributes(empty, t="ws", l=left, g=e1["g"])
         parent_set(empty, parent)
-
-        # add driver for empty.location.x
-        x = empty.driver_add("location", 0)
-        # x0
-        addTransformsVariable(x, "x0", e0, "LOC_X")
-        # x1
-        addTransformsVariable(x, "x1", e1, "LOC_X")
-        # expression
-        x.driver.expression = "(x0+x1)/2."
         
-        # add driver for empty.location.y
-        y = empty.driver_add("location", 1)
-        # y0
-        addTransformsVariable(y, "y0", e0, "LOC_Y")
-        # y1
-        addTransformsVariable(y, "y1", e1, "LOC_Y")
-        # expression
-        y.driver.expression = "(y0+y1)/2."
-
+        addSegmentDrivers(empty, e0, e1)
+        
         return empty
     
-    def createAdjoiningEmptyObject(self, name, location, hide):
+    def createAttachedEmptyObject(self, name, location, hide):
         empty = createEmptyObject(name, location, hide, **self.emptyPropsCorner)
         empty.lock_location[2] = True
-        # wc stands for "wall adjoining"
+        # wa stands for "wall attached"
         empty["t"] = "wa"
         return empty
     
@@ -799,7 +833,7 @@ class Wall:
         # restore the original active object
         objects.active = active
         
-    def startAdjoiningWall(self, o, locEnd):
+    def startAttachedWall(self, o, locEnd):
         parent = self.parent
         o = self.getCornerEmpty(o)
         
@@ -810,12 +844,12 @@ class Wall:
         v = o.location
         # vector along the current wall segment
         u = (v - _v).normalized()
-        # Will the adjoining wall be located on the left side (True) or on the right one (False)
+        # Will the attached wall be located on the left side (True) or on the right one (False)
         # relative to the original wall segment? This is defined by relative position
         left = True if u.cross(locEnd - _v)[2]>=0 else False
         
         if (left and not o["l"]) or (not left and o["l"]):
-            # the adjoining wall to be created can't cross the current wall segment!
+            # the attached wall to be created can't cross the current wall segment!
             o = self.getNeighbor(o)
             _v = self.getPrevious(o).location
             v = o.location
@@ -827,11 +861,11 @@ class Wall:
         h = prk.newWallHeight
         H = h*zAxis
         
-        # normal to the current wall segment in the direction of the adjoining wall to be created
+        # normal to the current wall segment in the direction of the attached wall to be created
         n = ( zAxis.cross(u) if left else u.cross(zAxis) ).normalized()
-        # normal with the length equal to the length of the adjoining wall defined by locEnd
+        # normal with the length equal to the length of the attached wall defined by locEnd
         N = n.dot(locEnd-_v)*n
-        # verts of the adjoing wall along the current wall segment
+        # verts of the attached wall along the current wall segment
         _u = 0.5*(v+_v) - 0.5*w*u
         u = 0.5*(v+_v) + 0.5*w*u
         verts = [
@@ -854,13 +888,13 @@ class Wall:
         # vertex groups are in the deform layer, create one before any operation with bmesh:
         layer = bm.verts.layers.deform.new()
         
-        l0 = self.createCornerEmptyObject("l"+group0, verts[0] if left else verts[1], False if atRight else True)
-        r0 = self.createCornerEmptyObject("r"+group0, verts[1] if left else verts[0], True if atRight else False)
+        l0 = self.createAttachedEmptyObject("l"+group0, verts[0] if left else verts[1], False if atRight else True)
+        r0 = self.createAttachedEmptyObject("r"+group0, verts[1] if left else verts[0], True if atRight else False)
         l1 = self.createCornerEmptyObject("l"+group1, verts[3] if left else verts[2], False if atRight else True)
         r1 = self.createCornerEmptyObject("r"+group1, verts[2] if left else verts[3], True if atRight else False)
         
-        setCustomAttributes(l0, l=1, e=0, g=group0, w=w, n=group1, m=meshIndex)
-        setCustomAttributes(r0, l=0, e=0, g=group0, w=w, n=group1, m=meshIndex)
+        setCustomAttributes(l0, l=1, e=0, g=group0, w=w, n=group1, m=meshIndex, al=1 if left else 0)
+        setCustomAttributes(r0, l=0, e=0, g=group0, w=w, n=group1, m=meshIndex, al=1 if left else 0)
         setCustomAttributes(l1, l=1, e=1, g=group1, w=w, p=group0, m=meshIndex)
         setCustomAttributes(r1, l=0, e=1, g=group0, w=w, p=group0, m=meshIndex)
         
@@ -912,7 +946,7 @@ class Wall:
             self.addEndEdgeDrivers(l0, r0, r1, False, atRight)
             self.addEndEdgeDrivers(l1, r0, r1, True, atRight)
             
-        # create Blender EMPTY objects for the adjoining wall segment:
+        # create Blender EMPTY objects for the attached wall segment:
         lEmpty = self.createSegmentEmptyObject(l0, l1, parent, False if atRight else True)
         rEmpty = self.createSegmentEmptyObject(r0, r1, parent, True if atRight else False)
         setCustomAttributes(lEmpty, m=meshIndex)

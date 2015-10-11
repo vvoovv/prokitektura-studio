@@ -130,21 +130,49 @@ class WallFlipControls(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class WallAdjoiningStart(bpy.types.Operator):
-    bl_idname = "object.wall_adjoining_start"
-    bl_label = "Start an adjoing wall"
-    bl_description = "Start a wall adjoing to the selected wall segment"
+class WallAttachedStart(bpy.types.Operator):
+    bl_idname = "object.wall_attached_start"
+    bl_label = "Start an attached wall"
+    bl_description = "Start a wall attached to the selected wall segment"
     bl_options = {"REGISTER", "UNDO"}
     
+    # states
+    set_location = (1,)
+    set_length = (1,)
+    
+    def modal(self, context, event):
+        state = self.state
+        mover = self.mover
+        if state is None:
+            self.state = self.set_location
+            mover.start()
+        elif state is self.set_location:
+            operator = context.window_manager.operators[-1] if len(context.window_manager.operators) else None
+            # The condition operator != self.lastOperator means,
+            # that the modal operator started by mover.start() finished its work
+            if operator != self.lastOperator or event.type in {'RIGHTMOUSE', 'ESC'}:
+                mover.end()
+                self.state = self.set_length
+        elif state is self.set_length:
+            o = mover.o2
+            o.select = True
+            context.scene.objects.active = o
+            bpy.ops.transform.translate('INVOKE_DEFAULT', constraint_axis=(True, False, False), constraint_orientation='LOCAL')
+            return {'FINISHED'}
+        return {'PASS_THROUGH'}
+    
     def invoke(self, context, event):
-        empty = context.scene.objects.active
-        wall = getWallFromEmpty(context, self, empty)
+        e = context.scene.objects.active
+        wall = getWallFromEmpty(context, self, e)
         if not wall:
             self.report({"ERROR"}, "Select two consequent EMPTY objects belonging to the wall")
         wall.resetHookModifiers()
         locEnd = cursor_2d_to_location_3d(context, event)
-        empty = wall.getCornerEmpty(empty)
-        # wall.startAdjoiningWall(empty, locEnd) returns segment EMPTY
-        e = wall.startAdjoiningWall(empty, locEnd)
-        Mover(getWallFromEmpty(context, self, e), e, wall.getPrevious(empty), empty)
-        return {'FINISHED'}
+        e = wall.getCornerEmpty(e)
+        # wall.startAttachedWall(empty, locEnd) returns segment EMPTY
+        o = wall.startAttachedWall(e, locEnd)
+        self.mover = Mover(getWallFromEmpty(context, self, o), o, wall, e)
+        self.state = None
+        self.lastOperator = context.window_manager.operators[-1] if len(context.window_manager.operators) else None
+        context.window_manager.modal_handler_add(self)
+        return {'RUNNING_MODAL'}
