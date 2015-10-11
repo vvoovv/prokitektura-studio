@@ -61,20 +61,20 @@ def addSegmentDrivers(e, e0, e1):
 
 
 def addAttachedDrivers(wallAttached, o1, o2, e1, e2):
-    # width of the attached wall segment
-    w = o2["w"]
     # neighbor of <o1>
     _o1 = wallAttached.getNeighbor(o1)
     # delete corner drivers
     o1.driver_remove("location")
     _o1.driver_remove("location")
     
-    # Create drives that keep <o1> always located on the wall segment defined by <e1> and <e2> and
-    # distance between <e1> and <o1> constant
+    # Create drivers that keep <o1> always located on the wall segment defined by <e1> and <e2> and
+    # that keep distance between <e1> and <o1> constant
     
+    #
+    # <o1>
+    #
     # distance between <e1> and <o1>
     l = (o1.location-e1.location).length
-    
     # x
     x = o1.driver_add("location", 0)
     addTransformsVariable(x, "x1", e1, "LOC_X")
@@ -87,6 +87,37 @@ def addAttachedDrivers(wallAttached, o1, o2, e1, e2):
     addTransformsVariable(y, "y2", e2, "LOC_Y")
     addLocDiffVariable(y, "d", e1, e2)
     y.driver.expression = "y1+" + str(l) + "*(y2-y1)/max(d,0.001)"
+    
+    #
+    # <_o1>
+    #
+    sign = "+" if o1["l"] else "-"
+    # x
+    x = _o1.driver_add("location", 0)
+    addTransformsVariable(x, "o1x", o1, "LOC_X")
+    addTransformsVariable(x, "o2x", o2, "LOC_X")
+    addTransformsVariable(x, "o1y", o1, "LOC_Y")
+    addTransformsVariable(x, "o2y", o2, "LOC_Y")
+    addLocDiffVariable(x, "do", o1, o2)
+    addTransformsVariable(x, "e1x", e1, "LOC_X")
+    addTransformsVariable(x, "e2x", e2, "LOC_X")
+    addTransformsVariable(x, "e1y", e1, "LOC_Y")
+    addTransformsVariable(x, "e2y", e2, "LOC_Y")
+    addSinglePropVariable(x, "w", o2, "[\"w\"]")
+    x.driver.expression = "o1x"+sign+"w*do*(e2x-e1x)/( (o2y-o1y)*(e2x-e1x)+(o1x-o2x)*(e2y-e1y) )"
+    # y
+    y = _o1.driver_add("location", 1)
+    addTransformsVariable(y, "o1x", o1, "LOC_X")
+    addTransformsVariable(y, "o2x", o2, "LOC_X")
+    addTransformsVariable(y, "o1y", o1, "LOC_Y")
+    addTransformsVariable(y, "o2y", o2, "LOC_Y")
+    addLocDiffVariable(y, "do", o1, o2)
+    addTransformsVariable(y, "e1x", e1, "LOC_X")
+    addTransformsVariable(y, "e2x", e2, "LOC_X")
+    addTransformsVariable(y, "e1y", e1, "LOC_Y")
+    addTransformsVariable(y, "e2y", e2, "LOC_Y")
+    addSinglePropVariable(y, "w", o2, "[\"w\"]")
+    y.driver.expression = "o1y"+sign+"w*do*(e2y-e1y)/( (o2y-o1y)*(e2x-e1x)+(o1x-o2x)*(e2y-e1y) )"
 
 
 def getFaceFortVerts(verts1, verts2):
@@ -896,7 +927,7 @@ class Wall:
         setCustomAttributes(l0, l=1, e=0, g=group0, w=w, n=group1, m=meshIndex, al=1 if left else 0)
         setCustomAttributes(r0, l=0, e=0, g=group0, w=w, n=group1, m=meshIndex, al=1 if left else 0)
         setCustomAttributes(l1, l=1, e=1, g=group1, w=w, p=group0, m=meshIndex)
-        setCustomAttributes(r1, l=0, e=1, g=group0, w=w, p=group0, m=meshIndex)
+        setCustomAttributes(r1, l=0, e=1, g=group1, w=w, p=group0, m=meshIndex)
         
         for i in range(len(verts)):
             verts[i] = bm.verts.new(verts[i])
