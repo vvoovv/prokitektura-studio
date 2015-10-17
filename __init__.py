@@ -36,6 +36,7 @@ keymap = None
 
 
 def register():
+    base.register()
     gui.register()
     item.register()
     # register keyboard shortcuts
@@ -44,23 +45,26 @@ def register():
     if keymap:
         wm.keyconfigs.addon.keymaps.remove(keymap)
     km = wm.keyconfigs.addon.keymaps.new(name="Object Mode")
+    # overriding standart Blender shortcut for moving
+    km.keymap_items.new("prk.move", "G", "PRESS")
     # shortcut for adding a new wall
-    km.keymap_items.new("object.wall_edit_add", "D", "PRESS")
+    km.keymap_items.new("prk.wall_edit_add", "D", "PRESS")
     # shortcut for extending the wall
-    km.keymap_items.new("object.wall_edit_extend", "E", "PRESS")
+    km.keymap_items.new("prk.wall_edit_extend", "E", "PRESS")
     # shortcut for completing the wall
-    km.keymap_items.new("object.wall_complete", "Q", "PRESS")
+    km.keymap_items.new("prk.wall_complete", "Q", "PRESS")
     # shortcut to make a floor
-    km.keymap_items.new("object.floor_make", "F", "PRESS", ctrl=True)
+    km.keymap_items.new("prk.floor_make", "F", "PRESS", ctrl=True)
     # shortcut to work on a floor
-    km.keymap_items.new("object.floor_work", "F", "PRESS")
+    km.keymap_items.new("prk.floor_work", "F", "PRESS")
     # shortcut to create an adjoing wall
-    km.keymap_items.new("object.wall_attached_start", "D", "PRESS", ctrl=True)
+    km.keymap_items.new("prk.wall_attached_start", "D", "PRESS", ctrl=True)
     #kmi.properties.name = ""
     keymap = km
 
 
 def unregister():
+    base.unregister()
     gui.unregister()
     item.unregister()
     # delete shortcuts

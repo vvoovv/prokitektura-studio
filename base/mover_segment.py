@@ -15,7 +15,7 @@ def addMoverDrivers(slave, master):
     y.driver.expression = "y+("+str(slave.location.y)+")-("+str(master.location.y)+")"
 
 
-class Mover:
+class SegmentMover:
     
     def __init__(self, wallAttached, o, wallOriginal, e2):
         self.wallAttached = wallAttached

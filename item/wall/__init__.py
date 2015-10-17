@@ -8,7 +8,7 @@ def getWallFromEmpty(context, op, empty, end=False):
     # check validity of empty
     if not (empty and empty.type == "EMPTY" and (not end or "e" in empty)):
         return None
-    wall = Wall(context, op, False)
+    wall = Wall(context, op)
     wall.init(empty.parent, empty)
     return wall
 
@@ -158,9 +158,9 @@ def setWidth(self, value):
 class GuiWall:
     
     def draw(self, context, layout):
-        layout.operator("object.floor_make")
+        layout.operator("prk.floor_make")
         layout.separator()
-        layout.operator("object.wall_flip_controls")
+        layout.operator("prk.wall_flip_controls")
         o = context.scene.objects.active
         if o["t"] == "ws" or o["t"] == "wc":
             box = layout.box()
@@ -177,11 +177,9 @@ class Wall:
     emptyPropsCorner = {'empty_draw_type':'CUBE', 'empty_draw_size':0.02}
     emptyPropsSegment = {'empty_draw_type':'SPHERE', 'empty_draw_size':0.05}
     
-    def __init__(self, context, op, create):
+    def __init__(self, context, op):
         self.context = context
         self.op = op
-        if create:
-            self.create()
     
     def init(self, parent, o):
         meshIndex = o["m"]
@@ -986,4 +984,4 @@ class Wall:
         return lEmpty if atRight else rEmpty
 
 
-pContext.registerGui(Wall, GuiWall)
+pContext.register(Wall, GuiWall)

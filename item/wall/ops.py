@@ -1,12 +1,13 @@
 import bpy
 
-from blender_util import cursor_2d_to_location_3d
+from blender_util import cursor_2d_to_location_3d, getLastOperator
 from . import Wall, getWallFromEmpty
-from base.mover import Mover
+from base.mover_segment import SegmentMover
+from base.mover_along_line import AlongLineMover
 
 
 class WallEditAdd(bpy.types.Operator):
-    bl_idname = "object.wall_edit_add"
+    bl_idname = "prk.wall_edit_add"
     bl_label = "Add a new wall"
     bl_description = "Adds a new wall"
     bl_options = {"REGISTER", "UNDO"}
@@ -22,14 +23,14 @@ class WallEditAdd(bpy.types.Operator):
     
     def invoke(self, context, event):
         locEnd = cursor_2d_to_location_3d(context, event)
-        wall = Wall(context, self, False)
+        wall = Wall(context, self)
         constraint_axis = wall.create(locEnd)
         bpy.ops.transform.translate('INVOKE_DEFAULT', constraint_axis=constraint_axis, constraint_orientation='LOCAL')
         return {'FINISHED'}
     
 
 class WallEditExtend(bpy.types.Operator):
-    bl_idname = "object.wall_edit_extend"
+    bl_idname = "prk.wall_edit_extend"
     bl_label = "Extend the wall"
     bl_description = "Extends the wall"
     bl_options = {"REGISTER", "UNDO"}
@@ -56,7 +57,7 @@ class WallEditExtend(bpy.types.Operator):
 
 
 class WallAdd(bpy.types.Operator):
-    bl_idname = "object.wall_add"
+    bl_idname = "prk.wall_add"
     bl_label = "Add a new wall"
     bl_description = "Adds a new wall"
     bl_options = {"REGISTER", "UNDO"}
@@ -71,12 +72,12 @@ class WallAdd(bpy.types.Operator):
     )
     
     def execute(self, context):
-        Wall(context, self, True)
+        Wall(context, self).create()
         return {'FINISHED'}
 
 
 class WallExtend(bpy.types.Operator):
-    bl_idname = "object.wall_extend"
+    bl_idname = "prk.wall_extend"
     bl_label = "Extend the wall"
     bl_description = "Extends the wall"
     bl_options = {"REGISTER", "UNDO"}
@@ -101,7 +102,7 @@ class WallExtend(bpy.types.Operator):
 
 
 class WallComplete(bpy.types.Operator):
-    bl_idname = "object.wall_complete"
+    bl_idname = "prk.wall_complete"
     bl_label = "Complete the wall"
     bl_description = "Completes the wall"
     bl_options = {"REGISTER", "UNDO"}
@@ -116,7 +117,7 @@ class WallComplete(bpy.types.Operator):
 
 
 class WallFlipControls(bpy.types.Operator):
-    bl_idname = "object.wall_flip_controls"
+    bl_idname = "prk.wall_flip_controls"
     bl_label = "Flip control points for the wall"
     bl_description = "Flips control points for the wall"
     bl_options = {"REGISTER", "UNDO"}
@@ -131,7 +132,7 @@ class WallFlipControls(bpy.types.Operator):
 
 
 class WallAttachedStart(bpy.types.Operator):
-    bl_idname = "object.wall_attached_start"
+    bl_idname = "prk.wall_attached_start"
     bl_label = "Start an attached wall"
     bl_description = "Start a wall attached to the selected wall segment"
     bl_options = {"REGISTER", "UNDO"}
@@ -141,24 +142,29 @@ class WallAttachedStart(bpy.types.Operator):
     set_length = (1,)
     
     def modal(self, context, event):
+        wm = context.window_manager
         state = self.state
         mover = self.mover
         if state is None:
             self.state = self.set_location
             mover.start()
         elif state is self.set_location:
-            operator = context.window_manager.operators[-1] if len(context.window_manager.operators) else None
+            operator = getLastOperator(context)
             # The condition operator != self.lastOperator means,
             # that the modal operator started by mover.start() finished its work
             if operator != self.lastOperator or event.type in {'RIGHTMOUSE', 'ESC'}:
                 mover.end()
                 self.state = self.set_length
+                # starting AlongLineMover
+                mover = AlongLineMover(mover.wallAttached, mover.o2)
+                self.mover = mover
+                self.lastOperator = operator
+                mover.start()
         elif state is self.set_length:
-            o = mover.o2
-            o.select = True
-            context.scene.objects.active = o
-            bpy.ops.transform.translate('INVOKE_DEFAULT', constraint_axis=(True, False, False), constraint_orientation='LOCAL')
-            return {'FINISHED'}
+            operator = getLastOperator(context)
+            if operator != self.lastOperator or event.type in {'RIGHTMOUSE', 'ESC'}:
+                mover.end()
+                return {'FINISHED'}
         return {'PASS_THROUGH'}
     
     def invoke(self, context, event):
@@ -171,8 +177,8 @@ class WallAttachedStart(bpy.types.Operator):
         e = wall.getCornerEmpty(e)
         # wall.startAttachedWall(empty, locEnd) returns segment EMPTY
         o = wall.startAttachedWall(e, locEnd)
-        self.mover = Mover(getWallFromEmpty(context, self, o), o, wall, e)
+        self.mover = SegmentMover(getWallFromEmpty(context, self, o), o, wall, e)
         self.state = None
-        self.lastOperator = context.window_manager.operators[-1] if len(context.window_manager.operators) else None
+        self.lastOperator = getLastOperator(context)
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}

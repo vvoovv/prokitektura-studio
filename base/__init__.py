@@ -23,13 +23,31 @@ def getLevelLocation(context):
     return loc
 
 
+def getItem(context, op, o):
+    """
+    Returns an instance of Prokitektura class related to the Blender object <o>, supplied as input parameter
+    """
+    item = None
+    if "t" in o:
+        # keep <o> and its parent
+        _o = o
+        parent = o.parent
+        if not o["t"] in pContext.items and o.parent and "t" in parent:
+            # try the parent
+            o = parent
+        if o["t"] in pContext.items:
+            item = pContext.items[o["t"]][0](context, op)
+            item.init(parent, _o)
+    return item
+
+
 class Context:
     
     # a registry to store references to Blender operators responsible for specific categories
     classes = {}
     
-    # a registry to store references to instances of GUI classes
-    gui = {}
+    # a registry to store data related to items
+    items = {}
     
     def __init__(self):
         self.presetCollections = {}
@@ -38,8 +56,8 @@ class Context:
         if not _id in self.presetCollections: return
         self.presetCollections[_id]()
     
-    def registerGui(self, Cls, GuiCls):
-        self.gui[Cls.type] = (GuiCls(), Cls.name)
+    def register(self, Cls, GuiCls):
+        self.items[Cls.type] = (Cls, GuiCls())
     
     def register_class(self, _id, cl):
         if not _id in self.classes:
@@ -73,3 +91,11 @@ def init():
     pContext.presetCollections[FloorPlan.id] = FloorPlan
 
 init()
+
+from .ops import *
+
+def register():
+    bpy.utils.register_module(__name__)
+
+def unregister():
+    bpy.utils.unregister_module(__name__)

@@ -120,3 +120,13 @@ def modifier_apply_all(o):
             bpy.ops.object.modifier_apply(modifier=m.name)
         #except RuntimeError:
         #    pass
+
+
+def getLastOperator(context=None):
+    """
+    Returns the last operator from context.window_manager.operators or None if no operator is available
+    """
+    if not context:
+        context = bpy.context
+    wm = context.window_manager
+    return wm.operators[-1] if len(wm.operators) else None

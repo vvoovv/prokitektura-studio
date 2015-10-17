@@ -4,7 +4,7 @@ from . import Floor, getFloorObject
 
 
 class FloorMake(bpy.types.Operator):
-    bl_idname = "object.floor_make"
+    bl_idname = "prk.floor_make"
     bl_label = "Make a floor for the wall"
     bl_description = "Makes a floor for the wall defined by the selected point"
     bl_options = {"REGISTER", "UNDO"}
@@ -78,7 +78,7 @@ def floor_finish(context, op):
 
 
 class FloorWork(bpy.types.Operator):
-    bl_idname = "object.floor_work"
+    bl_idname = "prk.floor_work"
     bl_label = "Work on a floor"
     bl_description = "Universal operator to begin, continue and finish a floor"
     bl_options = {"REGISTER", "UNDO"}
@@ -96,7 +96,7 @@ class FloorWork(bpy.types.Operator):
 
 
 class FloorBegin(bpy.types.Operator):
-    bl_idname = "object.floor_begin"
+    bl_idname = "prk.floor_begin"
     bl_label = "Begin a floor"
     bl_description = "Begins a floor from the selected point"
     bl_options = {"REGISTER", "UNDO"}
@@ -107,7 +107,7 @@ class FloorBegin(bpy.types.Operator):
 
 
 class FloorContinue(bpy.types.Operator):
-    bl_idname = "object.floor_continue"
+    bl_idname = "prk.floor_continue"
     bl_label = "Continue the floor"
     bl_description = "Continues the floor with the selected point"
     bl_options = {"REGISTER", "UNDO"}
@@ -118,7 +118,7 @@ class FloorContinue(bpy.types.Operator):
 
 
 class FloorFinish(bpy.types.Operator):
-    bl_idname = "object.floor_finish"
+    bl_idname = "prk.floor_finish"
     bl_label = "Finish the floor"
     bl_description = "Finishes the floor with the selected point"
     bl_options = {"REGISTER", "UNDO"}
