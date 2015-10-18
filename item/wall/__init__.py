@@ -358,9 +358,6 @@ class Wall:
         
         parent = self.parent
         
-        alongX = False
-        alongY = False
-        
         if locEnd:
             # convert the end location to the coordinate system of the wall
             locEnd = parent.matrix_world.inverted() * locEnd
@@ -503,11 +500,7 @@ class Wall:
         setCustomAttributes(s1, m=meshIndex)
         setCustomAttributes(s2, m=meshIndex)
         
-        bpy.ops.object.select_all(action="DESELECT")
-        e1.select = True
-        context.scene.objects.active = e1
-        
-        return (alongX, alongY, False)
+        return e1
     
     def complete(self, left):
         mesh = self.mesh

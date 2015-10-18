@@ -35,6 +35,10 @@ class WallEditExtend(bpy.types.Operator):
     bl_description = "Extends the wall"
     bl_options = {"REGISTER", "UNDO"}
     
+    # states
+    set_location = (1,)
+    finished = (1,)
+    
     length = bpy.props.FloatProperty(
         name = "Length",
         description = "The length of the wall segment",
@@ -44,6 +48,22 @@ class WallEditExtend(bpy.types.Operator):
         unit = "LENGTH"
     )
     
+    def modal(self, context, event):
+        state = self.state
+        mover = self.mover
+        if state is None:
+            self.state = self.set_location
+            mover.start()
+        elif state is self.set_location:
+            operator = getLastOperator(context)
+            if operator != self.lastOperator or event.type in {'RIGHTMOUSE', 'ESC'}:
+                # let cancel event happen, i.e. don't call op.mover.end() immediately
+                self.state = self.finished
+        elif state is self.finished:
+            mover.end()
+            return {'FINISHED'}
+        return {'PASS_THROUGH'}
+    
     def invoke(self, context, event):
         empty = context.object
         locEnd = cursor_2d_to_location_3d(context, event)
@@ -51,9 +71,13 @@ class WallEditExtend(bpy.types.Operator):
         if not wall:
             self.report({"ERROR"}, "To extend the wall, select an EMPTY object at either open end of the wall")
             return {'FINISHED'}
-        constraint_axis = wall.extend(empty, locEnd)
-        bpy.ops.transform.translate('INVOKE_DEFAULT', constraint_axis=constraint_axis, constraint_orientation='LOCAL')
-        return {'FINISHED'}
+        o = wall.extend(empty, locEnd)
+        bpy.ops.object.select_all(action="DESELECT")
+        self.mover = AlongLineMover(wall, o)
+        self.state = None
+        self.lastOperator = getLastOperator(context)
+        context.window_manager.modal_handler_add(self)
+        return {'RUNNING_MODAL'}
 
 
 class WallAdd(bpy.types.Operator):
@@ -166,8 +190,8 @@ class WallAttachedStart(bpy.types.Operator):
                 # let cancel event happen, i.e. don't call op.mover.end() immediately
                 self.state = self.finished
         elif state is self.finished:
-                mover.end()
-                return {'FINISHED'}
+            mover.end()
+            return {'FINISHED'}
         return {'PASS_THROUGH'}
     
     def invoke(self, context, event):
