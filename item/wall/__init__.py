@@ -383,6 +383,15 @@ class Wall:
         # There can be only one deform layer
         layer = bm.verts.layers.deform[0]
         
+        # Will the wall be extended the left side (True) or on the right one (False)
+        # relative to the original wall segment? This is defined by relative position of the mouse
+        # and the original wall segment.
+        _v = (self.getPrevious(empty1) if end else empty1).location
+        v = (empty1 if end else self.getNext(empty1)).location
+        # vector along the current wall segment
+        u = (v - _v).normalized()
+        extendLeft = True if u.cross(locEnd - _v)[2]>=0 else False
+        
         left = empty1["l"]
         prefix1 = "l" if left else "r"
         group1 = prefix1 + group
@@ -397,27 +406,19 @@ class Wall:
             geom=(getFaceFortVerts(verts1, verts2),),
             context=3
         )
+        
+        # normal to the current wall segment in the direction of the new wall segement to be extended
+        n = ( zAxis.cross(u) if extendLeft else u.cross(zAxis) ).normalized()
+        # Normal with the length equal to the length of the new wall segment to be extended
+        # The length is defined by locEnd
+        N = (n.dot(locEnd-_v) if locEnd else op.length)*n
         # continuation of the vertex controlled by empty1, a Blender empty object
         # normal to the open edge ending by empty1
         n = (
                 empty1.location - self.getPrevious(empty1).location if end else self.getNext(empty1).location - empty1.location
             ).cross(zAxis).normalized()
-        if locEnd:
-            # check if n is oriented along X-axis or Y-axis
-            if abs(n[0])<zero:
-                alongY = True
-                n = yAxis
-                l = locEnd.y - empty1.location.y
-            elif abs(n[1])<zero:
-                alongX = True
-                n = xAxis
-                l = locEnd.x - empty1.location.x
-            else:
-                l = op.length
-        else:
-            l = op.length
         
-        loc = empty1.location + l*n
+        loc = empty1.location + N
         e1 = self.createCornerEmptyObject(group1, loc, False)
         setCustomAttributes(e1, l=1 if left else 0, e=end, g=group, w=w, m=meshIndex)
         if end:
@@ -874,10 +875,11 @@ class Wall:
         # vector along the current wall segment
         u = (v - _v).normalized()
         # Will the attached wall be located on the left side (True) or on the right one (False)
-        # relative to the original wall segment? This is defined by relative position
-        left = True if u.cross(locEnd - _v)[2]>=0 else False
+        # relative to the original wall segment? This is defined by relative position of the mouse
+        # and the original wall segment.
+        attachLeft = True if u.cross(locEnd - _v)[2]>=0 else False
         
-        if (left and not o["l"]) or (not left and o["l"]):
+        if (attachLeft and not o["l"]) or (not attachLeft and o["l"]):
             # the attached wall to be created can't cross the current wall segment!
             o = self.getNeighbor(o)
             _v = self.getPrevious(o).location
@@ -891,7 +893,7 @@ class Wall:
         H = h*zAxis
         
         # normal to the current wall segment in the direction of the attached wall to be created
-        n = ( zAxis.cross(u) if left else u.cross(zAxis) ).normalized()
+        n = ( zAxis.cross(u) if attachLeft else u.cross(zAxis) ).normalized()
         # normal with the length equal to the length of the attached wall defined by locEnd
         N = n.dot(locEnd-_v)*n
         # verts of the attached wall along the current wall segment
@@ -917,13 +919,13 @@ class Wall:
         # vertex groups are in the deform layer, create one before any operation with bmesh:
         layer = bm.verts.layers.deform.new()
         
-        l0 = self.createAttachedEmptyObject("l"+group0, verts[0] if left else verts[1], False if atRight else True)
-        r0 = self.createAttachedEmptyObject("r"+group0, verts[1] if left else verts[0], True if atRight else False)
-        l1 = self.createCornerEmptyObject("l"+group1, verts[3] if left else verts[2], False if atRight else True)
-        r1 = self.createCornerEmptyObject("r"+group1, verts[2] if left else verts[3], True if atRight else False)
+        l0 = self.createAttachedEmptyObject("l"+group0, verts[0] if attachLeft else verts[1], False if atRight else True)
+        r0 = self.createAttachedEmptyObject("r"+group0, verts[1] if attachLeft else verts[0], True if atRight else False)
+        l1 = self.createCornerEmptyObject("l"+group1, verts[3] if attachLeft else verts[2], False if atRight else True)
+        r1 = self.createCornerEmptyObject("r"+group1, verts[2] if attachLeft else verts[3], True if atRight else False)
         
-        setCustomAttributes(l0, l=1, e=0, g=group0, w=w, n=group1, m=meshIndex, al=1 if left else 0)
-        setCustomAttributes(r0, l=0, e=0, g=group0, w=w, n=group1, m=meshIndex, al=1 if left else 0)
+        setCustomAttributes(l0, l=1, e=0, g=group0, w=w, n=group1, m=meshIndex, al=1 if attachLeft else 0)
+        setCustomAttributes(r0, l=0, e=0, g=group0, w=w, n=group1, m=meshIndex, al=1 if attachLeft else 0)
         setCustomAttributes(l1, l=1, e=1, g=group1, w=w, p=group0, m=meshIndex)
         setCustomAttributes(r1, l=0, e=1, g=group1, w=w, p=group0, m=meshIndex)
         
@@ -931,25 +933,25 @@ class Wall:
             verts[i] = bm.verts.new(verts[i])
         
         # bottom
-        bm.faces.new( (verts[0], verts[3], verts[2], verts[1]) if left else (verts[1], verts[2], verts[3], verts[0]) )
+        bm.faces.new( (verts[0], verts[3], verts[2], verts[1]) if attachLeft else (verts[1], verts[2], verts[3], verts[0]) )
         # top
-        bm.faces.new( (verts[5], verts[6], verts[7], verts[4]) if left else (verts[4], verts[7], verts[6], verts[5]) )
+        bm.faces.new( (verts[5], verts[6], verts[7], verts[4]) if attachLeft else (verts[4], verts[7], verts[6], verts[5]) )
         # front
-        bm.faces.new( (verts[0], verts[4], verts[7], verts[3]) if left else (verts[0], verts[3], verts[7], verts[4]) )
+        bm.faces.new( (verts[0], verts[4], verts[7], verts[3]) if attachLeft else (verts[0], verts[3], verts[7], verts[4]) )
         # back
-        bm.faces.new( (verts[1], verts[2], verts[6], verts[5]) if left else (verts[1], verts[5], verts[6], verts[2]) )
+        bm.faces.new( (verts[1], verts[2], verts[6], verts[5]) if attachLeft else (verts[1], verts[5], verts[6], verts[2]) )
         # left
-        bm.faces.new( (verts[3], verts[7], verts[6], verts[2]) if left else (verts[0], verts[4], verts[5], verts[1]) )
+        bm.faces.new( (verts[3], verts[7], verts[6], verts[2]) if attachLeft else (verts[0], verts[4], verts[5], verts[1]) )
         # right
-        bm.faces.new( (verts[1], verts[5], verts[4], verts[0]) if left else (verts[2], verts[6], verts[7], verts[3]) )
+        bm.faces.new( (verts[1], verts[5], verts[4], verts[0]) if attachLeft else (verts[2], verts[6], verts[7], verts[3]) )
         
         # create vertex groups for each vertical wall edge
         # for the wall origin
-        assignGroupToVerts(obj, layer, "l"+group0, *((verts[0], verts[4]) if left else (verts[1], verts[5])) )
-        assignGroupToVerts(obj, layer, "r"+group0, *((verts[1], verts[5]) if left else (verts[0], verts[4])) )
+        assignGroupToVerts(obj, layer, "l"+group0, *((verts[0], verts[4]) if attachLeft else (verts[1], verts[5])) )
+        assignGroupToVerts(obj, layer, "r"+group0, *((verts[1], verts[5]) if attachLeft else (verts[0], verts[4])) )
         # for the wall end
-        assignGroupToVerts(obj, layer, "l"+group1, *((verts[3], verts[7]) if left else (verts[2], verts[6])) )
-        assignGroupToVerts(obj, layer, "r"+group1, *((verts[2], verts[6]) if left else (verts[3], verts[7])) )
+        assignGroupToVerts(obj, layer, "l"+group1, *((verts[3], verts[7]) if attachLeft else (verts[2], verts[6])) )
+        assignGroupToVerts(obj, layer, "r"+group1, *((verts[2], verts[6]) if attachLeft else (verts[3], verts[7])) )
         
         parent["counter"] = counter+2
 
