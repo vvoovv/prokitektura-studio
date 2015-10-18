@@ -142,7 +142,6 @@ class WallAttachedStart(bpy.types.Operator):
     set_length = (1,)
     
     def modal(self, context, event):
-        wm = context.window_manager
         state = self.state
         mover = self.mover
         if state is None:
@@ -164,7 +163,7 @@ class WallAttachedStart(bpy.types.Operator):
             operator = getLastOperator(context)
             if operator != self.lastOperator or event.type in {'RIGHTMOUSE', 'ESC'}:
                 mover.end()
-                return {'FINISHED'}
+                #return {'FINISHED'}
         return {'PASS_THROUGH'}
     
     def invoke(self, context, event):

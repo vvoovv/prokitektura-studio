@@ -982,6 +982,40 @@ class Wall:
         setCustomAttributes(rEmpty, m=meshIndex)
         
         return lEmpty if atRight else rEmpty
+    
+    def move_invoke(self, op, context, event, o):
+        from base.mover_segment import SegmentMover2
+        
+        t = o["t"]
+        if t == "wc" and "e" in o:
+            # <o> is corner EMPTY and located at either end of the wall
+            pass
+        elif t == "ws":
+            mover = SegmentMover2(self, o)
+        elif t == "wa":
+            # <o> is attached to another wall part
+            pass
+        else:
+            bpy.ops.transform.translate("INVOKE_DEFAULT")
+            return {'FINISHED'}
+        # keep the following variables in the operator <o>
+        op.state = None
+        op.lastOperator = getLastOperator(context)
+        op.mover = mover
+        op.finished = False
+        mover.start()
+        context.window_manager.modal_handler_add(op)
+        return {'RUNNING_MODAL'}
+    
+    def move_modal(self, op, context, event, o):
+        operator = getLastOperator(context)
+        if op.finished:
+            op.mover.end()
+            return {'FINISHED'}
+        if operator != op.lastOperator or event.type in {'RIGHTMOUSE', 'ESC'}:
+            # let cancel event happen, i.e. don't call op.mover.end() immediately
+            op.finished = True
+        return {'PASS_THROUGH'}
 
 
 pContext.register(Wall, GuiWall)
