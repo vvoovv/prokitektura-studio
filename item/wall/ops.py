@@ -2,7 +2,7 @@ import bpy
 
 from blender_util import cursor_2d_to_location_3d, getLastOperator
 from . import Wall, getWallFromEmpty
-from base.mover_segment import SegmentMover
+from base.mover_segment import AttachedSegmentMover
 from base.mover_along_line import AlongLineMover
 
 
@@ -140,6 +140,7 @@ class WallAttachedStart(bpy.types.Operator):
     # states
     set_location = (1,)
     set_length = (1,)
+    finished = (1,)
     
     def modal(self, context, event):
         state = self.state
@@ -162,8 +163,11 @@ class WallAttachedStart(bpy.types.Operator):
         elif state is self.set_length:
             operator = getLastOperator(context)
             if operator != self.lastOperator or event.type in {'RIGHTMOUSE', 'ESC'}:
+                # let cancel event happen, i.e. don't call op.mover.end() immediately
+                self.state = self.finished
+        elif state is self.finished:
                 mover.end()
-                #return {'FINISHED'}
+                return {'FINISHED'}
         return {'PASS_THROUGH'}
     
     def invoke(self, context, event):
@@ -176,7 +180,7 @@ class WallAttachedStart(bpy.types.Operator):
         e = wall.getCornerEmpty(e)
         # wall.startAttachedWall(empty, locEnd) returns segment EMPTY
         o = wall.startAttachedWall(e, locEnd)
-        self.mover = SegmentMover(getWallFromEmpty(context, self, o), o, wall, e)
+        self.mover = AttachedSegmentMover(getWallFromEmpty(context, self, o), o, wall, e)
         self.state = None
         self.lastOperator = getLastOperator(context)
         context.window_manager.modal_handler_add(self)

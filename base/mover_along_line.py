@@ -9,9 +9,10 @@ class AlongLineMover:
     def __init__(self, wall, o):
         self.o = o
         context = wall.context
-        # consider that the line constraining movement of <o> passes through <o> and its previous corner EMPTY
+        # Consider that the line constraining movement of <o> passes through <o> and
+        # its previous corner EMPTY or the next corner EMPTY if <o> doesn't have the previous corner EMPTY
         point1 = o.location
-        point2 = wall.getPrevious(o).location
+        point2 = (wall.getNext(o) if "e" in o and not o["e"] else wall.getPrevious(o)).location
         
         # create a master EMPTY resembling <o>
         master = createEmptyObject("tmp", o.location, empty_draw_type=o.empty_draw_type, empty_draw_size=o.empty_draw_size)

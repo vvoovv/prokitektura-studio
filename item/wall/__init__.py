@@ -984,14 +984,15 @@ class Wall:
         return lEmpty if atRight else rEmpty
     
     def move_invoke(self, op, context, event, o):
-        from base.mover_segment import SegmentMover2
+        from base.mover_segment import SegmentMover
+        from base.mover_along_line import AlongLineMover
         
         t = o["t"]
         if t == "wc" and "e" in o:
             # <o> is corner EMPTY and located at either end of the wall
-            pass
+            mover = AlongLineMover(self, o)
         elif t == "ws":
-            mover = SegmentMover2(self, o)
+            mover = SegmentMover(self, o)
         elif t == "wa":
             # <o> is attached to another wall part
             pass
