@@ -858,7 +858,6 @@ class Wall:
         
     def startAttachedWall(self, o, locEnd):
         parent = self.parent
-        o = self.getCornerEmpty(o)
         
         locEnd.z = 0.
         # convert the end location to the coordinate system of the wall
@@ -980,17 +979,18 @@ class Wall:
     
     def move_invoke(self, op, context, event, o):
         from base.mover_segment import SegmentMover
-        from base.mover_along_line import AlongLineMover
+        from base.mover_along_line import AlongSegmentMover, AttachedMover
         
         t = o["t"]
         if t == "wc" and "e" in o:
             # <o> is corner EMPTY and located at either end of the wall
-            mover = AlongLineMover(self, o)
+            mover = AlongSegmentMover(self, o)
         elif t == "ws":
+            # <o> is segment EMPTY
             mover = SegmentMover(self, o)
         elif t == "wa":
             # <o> is attached to another wall part
-            pass
+            mover = AttachedMover(self, o)
         else:
             bpy.ops.transform.translate("INVOKE_DEFAULT")
             return {'FINISHED'}

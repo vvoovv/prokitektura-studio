@@ -3,7 +3,7 @@ import bpy
 from blender_util import cursor_2d_to_location_3d, getLastOperator
 from . import Wall, getWallFromEmpty
 from base.mover_segment import AttachedSegmentMover
-from base.mover_along_line import AlongLineMover
+from base.mover_along_line import AlongSegmentMover
 
 
 class WallEditAdd(bpy.types.Operator):
@@ -73,7 +73,7 @@ class WallEditExtend(bpy.types.Operator):
             return {'FINISHED'}
         o = wall.extend(empty, locEnd)
         bpy.ops.object.select_all(action="DESELECT")
-        self.mover = AlongLineMover(wall, o)
+        self.mover = AlongSegmentMover(wall, o)
         self.state = None
         self.lastOperator = getLastOperator(context)
         context.window_manager.modal_handler_add(self)
@@ -180,7 +180,7 @@ class WallAttachedStart(bpy.types.Operator):
                 mover.end()
                 self.state = self.set_length
                 # starting AlongLineMover
-                mover = AlongLineMover(mover.wallAttached, mover.o2)
+                mover = AlongSegmentMover(mover.wallAttached, mover.o2)
                 self.mover = mover
                 self.lastOperator = operator
                 mover.start()
@@ -201,7 +201,8 @@ class WallAttachedStart(bpy.types.Operator):
             self.report({"ERROR"}, "Select two consequent EMPTY objects belonging to the wall")
         wall.resetHookModifiers()
         locEnd = cursor_2d_to_location_3d(context, event)
-        e = wall.getCornerEmpty(e)
+        # treat the case if <e> is at the starting open end of the wall
+        e = wall.getNext(e) if "e" in e and not e["e"] else wall.getCornerEmpty(e)
         # wall.startAttachedWall(empty, locEnd) returns segment EMPTY
         o = wall.startAttachedWall(e, locEnd)
         self.mover = AttachedSegmentMover(getWallFromEmpty(context, self, o), o, wall, e)

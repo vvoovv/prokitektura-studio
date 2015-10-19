@@ -2,18 +2,15 @@ import math
 import bpy
 
 from blender_util import createEmptyObject, parent_set
-from item.wall import addTransformsVariable
+from item.wall import addTransformsVariable, addAttachedDrivers
 
-class AlongLineMover:
+class Mover:
+    """
+    A base class for all movers along a line
+    """
     
-    def __init__(self, wall, o):
-        self.o = o
-        context = wall.context
-        # Consider that the line constraining movement of <o> passes through <o> and
-        # its previous corner EMPTY or the next corner EMPTY if <o> doesn't have the previous corner EMPTY
-        point1 = o.location
-        point2 = (wall.getNext(o) if "e" in o and not o["e"] else wall.getPrevious(o)).location
-        
+    def setupMaster(self, context, point1, point2):
+        o = self.o
         # create a master EMPTY resembling <o>
         master = createEmptyObject("tmp", o.location, empty_draw_type=o.empty_draw_type, empty_draw_size=o.empty_draw_size)
         self.master = master
@@ -45,3 +42,37 @@ class AlongLineMover:
         bpy.data.objects.remove(self.master)
         o.select = True
         bpy.context.scene.objects.active = o
+
+
+class AlongSegmentMover(Mover):
+    
+    def __init__(self, wall, o):
+        self.o = o
+        context = wall.context
+        # The line constraining movement of <o> passes through <o> and
+        # its previous corner EMPTY or the next corner EMPTY if <o> doesn't have the previous corner EMPTY
+        point1 = o.location
+        point2 = (wall.getNext(o) if "e" in o and not o["e"] else wall.getPrevious(o)).location
+        self.setupMaster(context, point1, point2)
+
+
+class AttachedMover(Mover):
+    
+    def __init__(self, wall, o):
+        self.o = o
+        self.wall = wall
+        # get reference points for the wall segment to which <o> is attached
+        variables = o.animation_data.drivers[0].driver.variables
+        self.e1 = variables[0].targets[0].id
+        self.e2 = variables[1].targets[0].id
+
+        # temporarily remove drivers for the attached EMPTY object
+        o.driver_remove("location")
+
+        self.setupMaster(wall.context, self.e1.location, self.e2.location)
+    
+    def end(self):
+        super().end()
+        o = self.o
+        wall = self.wall
+        addAttachedDrivers(wall, o, wall.getNext(o), self.e1, self.e2)
