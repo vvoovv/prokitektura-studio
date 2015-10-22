@@ -75,4 +75,4 @@ class AttachedMover(Mover):
         super().end()
         o = self.o
         wall = self.wall
-        addAttachedDrivers(wall, o, wall.getNext(o), self.e1, self.e2)
+        addAttachedDrivers(wall, o, wall.getNext(o), self.e1, self.e2, False)
