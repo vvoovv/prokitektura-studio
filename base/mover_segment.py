@@ -1,18 +1,38 @@
 import math
 import bpy
 
+from mathutils.geometry import intersect_line_line
+
 from item.wall import addTransformsVariable, addSegmentDrivers, addAttachedDrivers
 
 
-def addMoverDrivers(slave, master):
+def addMoverDrivers(e, o, p):
+    """
+    Add drivers
+    
+    Args:
+        e: A slave, a corner EMPTY that is a direct neighbor of <o>
+        o: Segment EMPTY
+        p: Intersection point of wall segments that are neighbors of the wall segment defined by <o>
+    """
+    
+    # inital vector connecting <p> and <o>
+    m0 = o.location - p
+    # initial vector connecting <p> and <e> divided by m0.length_squared
+    v0 = (e.location - p)/m0.length_squared
+    
     # x
-    x = slave.driver_add("location", 0)
-    addTransformsVariable(x, "x", master, "LOC_X")
-    x.driver.expression = "x+("+str(slave.location.x)+")-("+str(master.location.x)+")"
+    x = e.driver_add("location", 0)
+    addTransformsVariable(x, "ox", o, "LOC_X")
+    addTransformsVariable(x, "oy", o, "LOC_Y")
+    # p.x +(m0.x*(ox-p.x)+m0.y*(oy-p.y))*v0.x
+    x.driver.expression = str(p.x) + "+("+str(m0.x)+"*(ox-"+str(p.x)+")+"+str(m0.y)+"*(oy-"+str(p.y)+"))*"+str(v0.x)
     # y
-    y = slave.driver_add("location", 1)
-    addTransformsVariable(y, "y", master, "LOC_Y")
-    y.driver.expression = "y+("+str(slave.location.y)+")-("+str(master.location.y)+")"
+    y = e.driver_add("location", 1)
+    addTransformsVariable(y, "ox", o, "LOC_X")
+    addTransformsVariable(y, "oy", o, "LOC_Y")
+    # p.y +(m0.x*(ox-p.x)+m0.y*(oy-p.y))*v0.y
+    y.driver.expression = str(p.y) + "+("+str(m0.x)+"*(ox-"+str(p.x)+")+"+str(m0.y)+"*(oy-"+str(p.y)+"))*"+str(v0.y)
 
 
 class AttachedSegmentMover:
@@ -77,12 +97,34 @@ class SegmentMover:
         context = wall.context
         # temporarily remove drivers for the segment EMPTY object
         o.driver_remove("location")
-        # rotate <o> along the normal to the wall segment defined by <o>
-        o.rotation_euler[2] = math.atan2(o1.location.x-o2.location.x, o2.location.y-o1.location.y)
+        
+        # get neighbor EMPTYs for <o1> and <o2>
+        e1 = wall.getPrevious(o1)
+        e2 = wall.getNext(o2)
+        # vectors
+        if e1:
+            v1 = o1.location - e1.location
+        if e2:
+            v2 = e2.location - o2.location
+        
+        if e1 and e2:
+            # point where the line defined by v1 and v2 intersect
+            p = intersect_line_line(e1.location, o1.location, o2.location, e2.location)[0]
+            # orient <o> along the line defined by <o> and <p>
+            dy, dx = o.location.y-p.y, o.location.x-p.x
+        elif e1 or e2:
+            _v = v1 if v1 else v2
+            # orient <o> along <_v>
+            dy, dx = _v.y, _v.x
+        else:
+            # orient <o> along the normal to the wall segment defined by <o>
+            dy, dx = o1.location.x-o2.location.x, o2.location.y-o1.location.y
+        
+        o.rotation_euler[2] = math.atan2(dy, dx)
         context.scene.update()
         # adding drivers for o1 and o2
-        addMoverDrivers(o1, o)
-        addMoverDrivers(o2, o)
+        addMoverDrivers(o1, o, p)
+        addMoverDrivers(o2, o, p)
         
         o.select = True
         context.scene.objects.active = o
