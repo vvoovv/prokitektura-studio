@@ -62,13 +62,11 @@ class AttachedMover(Mover):
         self.o = o
         self.wall = wall
         # get reference points for the wall segment to which <o> is attached
-        variables = o.animation_data.drivers[0].driver.variables
-        self.e1 = variables[0].targets[0].id
-        self.e2 = variables[1].targets[0].id
-
+        self.e1, self.e2 = wall.getReferencesForAttached(o)
+        
         # temporarily remove drivers for the attached EMPTY object
         o.driver_remove("location")
-
+        
         self.setupMaster(wall.context, self.e1.location, self.e2.location)
     
     def end(self):

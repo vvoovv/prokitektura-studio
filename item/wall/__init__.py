@@ -646,7 +646,13 @@ class Wall:
         # select the neighbor of <o>
         o = neighbor if neighbor else self.getNeighbor(o)
         o.select = True
-        self.context.scene.objects.active = o       
+        self.context.scene.objects.active = o
+    
+    def isAttached(self, o):
+        """
+        Returns True if <o> is attached to another wall segment or False otherwise
+        """
+        return "al" in o
             
     def getNeighbor(self, o):
         prefix = "r" if o["l"] else "l"
@@ -679,6 +685,18 @@ class Wall:
             # get corner EMPTY object if the input was a segment EMPTY object
             o = self.getEmpty(o["g"], o["l"])
         return o
+    
+    def getReferencesForAttached(self, o):
+        """
+        Get reference points for the wall segment to which <o> is attached.
+        
+        Returns:
+            A tuple with corner EMPTYs or None it <o> isn't attache to a wall segment.
+        """
+        if not self.isAttached(o):
+            return None
+        variables = o.animation_data.drivers[0].driver.variables
+        return (variables[0].targets[0].id, variables[1].targets[0].id)
     
     def isClosed(self):
         return not "end" in self.mesh

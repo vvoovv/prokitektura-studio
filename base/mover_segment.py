@@ -8,7 +8,7 @@ from base import zero2, strf
 from item.wall import addTransformsVariable, addSegmentDrivers, addAttachedDrivers
 
 
-def addMoverDrivers(e, o, p):
+def addMoverDrivers(e, o, p=None):
     """
     Add drivers
     
@@ -101,6 +101,7 @@ class AttachedSegmentMover:
 class SegmentMover:
     
     def __init__(self, wall, o):
+        self.wall = wall
         self.o = o
         # get neighbor EMPTYs for <o>
         o2 = wall.getCornerEmpty(o)
@@ -114,26 +115,36 @@ class SegmentMover:
         
         # get neighbor EMPTYs for <o1> and <o2>
         e1 = wall.getPrevious(o1)
+        attached1 = None if e1 else wall.getReferencesForAttached(o1)
+        self.attached1 = attached1
         e2 = wall.getNext(o2)
+        attached2 = None if e2 else wall.getReferencesForAttached(o2)
+        self.attached2 = attached2
         # vectors
         if e1:
             v1 = o1.location - e1.location
+        elif attached1:
+            v1 = attached1[1].location - attached1[0].location
         if e2:
             v2 = e2.location - o2.location
+        elif attached2:
+            v1 = attached2[1].location - attached2[0].location
         
         p = None
-        if e1 and e2:
+        if (e1 or attached1) and (e2 or attached2):
             # check if v1 and v2 are parallel
             if v1.cross(v2).length < zero2:
                 # orient <o> along v1, which gives the same effect as orienting <o> along v2
                 dy, dx = v1.y, v1.x
             else:
                 # point where the line defined by v1 and v2 intersect
-                p = intersect_line_line(e1.location, o1.location, o2.location, e2.location)[0]
+                l1 = (e1, o1) if e1 else attached1
+                l2 = (o2, e2) if e2 else attached2
+                p = intersect_line_line(l1[0].location, l1[1].location, l2[0].location, l2[1].location)[0]
                 # orient <o> along the line defined by <o> and <p>
                 dy, dx = o.location.y-p.y, o.location.x-p.x
-        elif e1 or e2:
-            _v = v1 if e1 else v2
+        elif e1 or attached1 or e2 or attached2:
+            _v = v1 if e1 or attached1 else v2
             # orient <o> along <_v>
             dy, dx = _v.y, _v.x
         else:
@@ -158,4 +169,9 @@ class SegmentMover:
         # delete drivers for the corner EMPTY objects self.o1 and self.o2
         self.o1.driver_remove("location")
         self.o2.driver_remove("location")
+        
         addSegmentDrivers(o, self.o1, self.o2)
+        
+        attached1 = self.attached1
+        if attached1:
+            addAttachedDrivers(self.wall, self.o1, self.o2, attached1[0], attached1[1], False)
