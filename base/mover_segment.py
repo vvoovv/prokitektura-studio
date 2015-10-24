@@ -3,6 +3,8 @@ import bpy
 
 from mathutils.geometry import intersect_line_line
 
+from base import zero2, strf
+
 from item.wall import addTransformsVariable, addSegmentDrivers, addAttachedDrivers
 
 
@@ -13,26 +15,38 @@ def addMoverDrivers(e, o, p):
     Args:
         e: A slave, a corner EMPTY that is a direct neighbor of <o>
         o: Segment EMPTY
-        p: Intersection point of wall segments that are neighbors of the wall segment defined by <o>
+        p: Intersection point of wall segments that are neighbors of the wall segment defined by <o>.
+        If p not preset, add drivers so the current location of <e> is defined by
+        the vector (e.location-o.location)
     """
     
-    # inital vector connecting <p> and <o>
-    m0 = o.location - p
-    # initial vector connecting <p> and <e> divided by m0.length_squared
-    v0 = (e.location - p)/m0.length_squared
-    
-    # x
-    x = e.driver_add("location", 0)
-    addTransformsVariable(x, "ox", o, "LOC_X")
-    addTransformsVariable(x, "oy", o, "LOC_Y")
-    # p.x +(m0.x*(ox-p.x)+m0.y*(oy-p.y))*v0.x
-    x.driver.expression = str(p.x) + "+("+str(m0.x)+"*(ox-"+str(p.x)+")+"+str(m0.y)+"*(oy-"+str(p.y)+"))*"+str(v0.x)
-    # y
-    y = e.driver_add("location", 1)
-    addTransformsVariable(y, "ox", o, "LOC_X")
-    addTransformsVariable(y, "oy", o, "LOC_Y")
-    # p.y +(m0.x*(ox-p.x)+m0.y*(oy-p.y))*v0.y
-    y.driver.expression = str(p.y) + "+("+str(m0.x)+"*(ox-"+str(p.x)+")+"+str(m0.y)+"*(oy-"+str(p.y)+"))*"+str(v0.y)
+    if p:
+        # inital vector connecting <p> and <o>
+        m0 = o.location - p
+        # initial vector connecting <p> and <e> divided by m0.length_squared
+        v0 = (e.location - p)/m0.length_squared
+        
+        # x
+        x = e.driver_add("location", 0)
+        addTransformsVariable(x, "ox", o, "LOC_X")
+        addTransformsVariable(x, "oy", o, "LOC_Y")
+        # p.x +(m0.x*(ox-p.x)+m0.y*(oy-p.y))*v0.x
+        x.driver.expression = strf(p.x) + "+("+strf(m0.x)+"*(ox-"+strf(p.x)+")+"+strf(m0.y)+"*(oy-"+strf(p.y)+"))*"+strf(v0.x)
+        # y
+        y = e.driver_add("location", 1)
+        addTransformsVariable(y, "ox", o, "LOC_X")
+        addTransformsVariable(y, "oy", o, "LOC_Y")
+        # p.y +(m0.x*(ox-p.x)+m0.y*(oy-p.y))*v0.y
+        y.driver.expression = strf(p.y) + "+("+strf(m0.x)+"*(ox-"+strf(p.x)+")+"+strf(m0.y)+"*(oy-"+strf(p.y)+"))*"+strf(v0.y)
+    else:
+        # x
+        x = e.driver_add("location", 0)
+        addTransformsVariable(x, "x", o, "LOC_X")
+        x.driver.expression = "x+("+strf(e.location.x)+")-("+strf(o.location.x)+")"
+        # y
+        y = e.driver_add("location", 1)
+        addTransformsVariable(y, "y", o, "LOC_Y")
+        y.driver.expression = "y+("+strf(e.location.y)+")-("+strf(o.location.y)+")"
 
 
 class AttachedSegmentMover:
@@ -107,13 +121,19 @@ class SegmentMover:
         if e2:
             v2 = e2.location - o2.location
         
+        p = None
         if e1 and e2:
-            # point where the line defined by v1 and v2 intersect
-            p = intersect_line_line(e1.location, o1.location, o2.location, e2.location)[0]
-            # orient <o> along the line defined by <o> and <p>
-            dy, dx = o.location.y-p.y, o.location.x-p.x
+            # check if v1 and v2 are parallel
+            if v1.cross(v2).length < zero2:
+                # orient <o> along v1, which gives the same effect as orienting <o> along v2
+                dy, dx = v1.y, v1.x
+            else:
+                # point where the line defined by v1 and v2 intersect
+                p = intersect_line_line(e1.location, o1.location, o2.location, e2.location)[0]
+                # orient <o> along the line defined by <o> and <p>
+                dy, dx = o.location.y-p.y, o.location.x-p.x
         elif e1 or e2:
-            _v = v1 if v1 else v2
+            _v = v1 if e1 else v2
             # orient <o> along <_v>
             dy, dx = _v.y, _v.x
         else:
