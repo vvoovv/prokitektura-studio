@@ -1001,10 +1001,13 @@ class Wall:
         from base.mover_segment import SegmentMover
         from base.mover_along_line import AlongSegmentMover, AttachedMover
         
+        op.blockAxisConstraint = True
+        
         t = o["t"]
         if t == "wc" and "e" in o:
             # <o> is corner EMPTY and located at either end of the wall
             mover = AlongSegmentMover(self, o)
+            op.blockAxisConstraint = False
         elif t == "ws":
             # <o> is segment EMPTY
             mover = SegmentMover(self, o)
@@ -1025,6 +1028,9 @@ class Wall:
     
     def move_modal(self, op, context, event, o):
         operator = getLastOperator(context)
+        if op.blockAxisConstraint and event.type in {'X', 'Y', 'Z'}:
+            # block pressing X, Y, Z keys
+            return {'RUNNING_MODAL'}
         if op.finished:
             op.mover.end()
             return {'FINISHED'}

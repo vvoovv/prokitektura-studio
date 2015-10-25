@@ -163,31 +163,35 @@ class WallAttachedStart(bpy.types.Operator):
     
     # states
     set_location = (1,)
+    set_location_finished = (1,)
     set_length = (1,)
     finished = (1,)
     
     def modal(self, context, event):
         state = self.state
         mover = self.mover
-        if state is None:
-            self.state = self.set_location
-            mover.start()
-        elif state is self.set_location:
+        if state is self.set_location:
+            # block pressing X, Y, Z keys
+            if event.type in {'X', 'Y', 'Z'}:
+                return {'RUNNING_MODAL'}
             operator = getLastOperator(context)
             # The condition operator != self.lastOperator means,
             # that the modal operator started by mover.start() finished its work
             if operator != self.lastOperator or event.type in {'RIGHTMOUSE', 'ESC'}:
-                mover.end()
-                self.state = self.set_length
-                # starting AlongLineMover
-                mover = AlongSegmentMover(mover.wallAttached, mover.o2)
-                self.mover = mover
+                # let cancel event happen, i.e. don't call mover.end() immediately
+                self.state = self.set_location_finished
                 self.lastOperator = operator
-                mover.start()
+        elif state is self.set_location_finished:
+            mover.end()
+            self.state = self.set_length
+            # starting AlongLineMover
+            mover = AlongSegmentMover(mover.wallAttached, mover.o2)
+            self.mover = mover
+            mover.start()
         elif state is self.set_length:
             operator = getLastOperator(context)
             if operator != self.lastOperator or event.type in {'RIGHTMOUSE', 'ESC'}:
-                # let cancel event happen, i.e. don't call op.mover.end() immediately
+                # let cancel event happen, i.e. don't call mover.end() immediately
                 self.state = self.finished
         elif state is self.finished:
             mover.end()
@@ -206,7 +210,8 @@ class WallAttachedStart(bpy.types.Operator):
         # wall.startAttachedWall(empty, locEnd) returns segment EMPTY
         o = wall.startAttachedWall(e, locEnd)
         self.mover = AttachedSegmentMover(getWallFromEmpty(context, self, o), o, wall, e)
-        self.state = None
+        self.state = self.set_location
         self.lastOperator = getLastOperator(context)
+        self.mover.start()
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
