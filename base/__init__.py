@@ -11,7 +11,9 @@ zero2 = 0.0005
 
 def strf(value):
     "Returns a rounded float value as a string"
-    return str(round(value, 4))
+    # rounding leads to calculation errors, so skip it
+    #return str(round(value, 4))
+    return str(value)
 
 
 def getLevelHeight(context):
