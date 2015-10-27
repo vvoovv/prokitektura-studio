@@ -48,7 +48,7 @@ def register():
     # overriding standart Blender shortcut for moving
     km.keymap_items.new("prk.move", "G", "PRESS")
     # shortcut for adding a new wall
-    km.keymap_items.new("prk.wall_edit_add", "D", "PRESS")
+    km.keymap_items.new("prk.wall_edit_add", "E", "PRESS", ctrl=True)
     # shortcut for extending the wall
     km.keymap_items.new("prk.wall_edit_extend", "E", "PRESS")
     # shortcut for completing the wall
