@@ -61,7 +61,7 @@ class AttachedMover(Mover):
     def __init__(self, wall, o):
         self.o = o
         self.wall = wall
-        # get reference points for the wall segment to which <o> is attached
+        # get reference EMPTYs for the wall segment to which <o> is attached
         self.e1, self.e2 = wall.getReferencesForAttached(o)
         
         # temporarily remove drivers for the attached EMPTY object
@@ -73,4 +73,4 @@ class AttachedMover(Mover):
         super().end()
         o = self.o
         wall = self.wall
-        addAttachedDrivers(wall, o, wall.getNext(o), self.e1, self.e2, False)
+        addAttachedDrivers(wall, o, wall.getPrevious(o) if o["e"] else wall.getNext(o), self.e1, self.e2, False)

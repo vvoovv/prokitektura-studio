@@ -2,6 +2,7 @@ import bpy
 
 from blender_util import cursor_2d_to_location_3d, getLastOperator
 from . import Wall, getWallFromEmpty
+from base import zero2
 from base.mover_segment import AttachedSegmentMover
 from base.mover_along_line import AlongSegmentMover
 
@@ -127,16 +128,54 @@ class WallExtend(bpy.types.Operator):
 
 class WallComplete(bpy.types.Operator):
     bl_idname = "prk.wall_complete"
-    bl_label = "Complete the wall"
-    bl_description = "Completes the wall"
+    bl_label = "Complete or attach the wall"
+    bl_description = "Complete the wall or attach its free end to the selected wall segment"
     bl_options = {"REGISTER", "UNDO"}
     
     def execute(self, context):
-        empty = context.scene.objects.active
-        wall = getWallFromEmpty(context, self, empty)
+        o = context.scene.objects.active
+        wall = getWallFromEmpty(context, self, o)
         if not wall:
             self.report({"ERROR"}, "To complete the wall, select an EMPTY object belonging to the wall")
-        wall.complete(empty["l"])
+            return {'FINISHED'}
+        if wall.isClosed():
+            self.report({"ERROR"}, "The wall has been already completed!")
+            return {'FINISHED'}
+        
+        left = o["l"]
+        
+        start = wall.getStart(left)
+        if wall.isAttached(start):
+            end = wall.getEnd(left)
+            if wall.isAttached(end):
+                self.report({"ERROR"}, "The wall has been already attached!")
+                return {'FINISHED'}
+            
+            selected = context.selected_objects
+            hasError = True
+            if o == end and len(selected) == 2:
+                target = selected[0] if selected[1] == o else selected[1]
+                if target["t"] == "ws" and o["m"] != target["m"]:
+                    hasError = False
+                    targetWall = getWallFromEmpty(context, self, target)
+                    # get reference corner EMPTYs for the targer wall
+                    e2 = targetWall.getCornerEmpty(target)
+                    e1 = targetWall.getPrevious(e2)
+                    # Check if the wall segment defined by <e1> and <e2> and
+                    # the wall segment defined by <o> and its previous EMPTY
+                    # are NOT perpedndicular, otherwise it won't be possible to attach <wall>
+                    # perpendicular to <targetWall>
+                    if abs( (e2.location-e1.location).dot(o.location-wall.getPrevious(o).location) ) < zero2:
+                        self.report({"ERROR"}, "Unable to attach the wall perpendicular to the target one!")
+                        return {'FINISHED'}
+                    
+                    wall.completeAttachedWall(o, targetWall, target)
+                    
+            if hasError:
+                self.report({"ERROR"}, "To attach the wall select a target wall segment first and then the free end of the wall!")
+                return {'FINISHED'}
+        else:
+            wall.complete(left)
         return {'FINISHED'}
 
 
@@ -171,7 +210,7 @@ class WallAttachedStart(bpy.types.Operator):
         state = self.state
         mover = self.mover
         if state is self.set_location:
-            # block pressing X, Y, Z keys
+            # capture X, Y, Z keys
             if event.type in {'X', 'Y', 'Z'}:
                 return {'RUNNING_MODAL'}
             operator = getLastOperator(context)
@@ -212,6 +251,9 @@ class WallAttachedStart(bpy.types.Operator):
         self.mover = AttachedSegmentMover(getWallFromEmpty(context, self, o), o, wall, e)
         self.state = self.set_location
         self.lastOperator = getLastOperator(context)
+        # The order how self.mover.start() and context.window_manager.modal_handler_add(self)
+        # are called is important. If they are called in the reversed order, it won't be possible to
+        # capture X, Y, Z keys
         self.mover.start()
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}

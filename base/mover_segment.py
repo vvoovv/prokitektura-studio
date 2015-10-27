@@ -128,7 +128,7 @@ class SegmentMover:
         if e2:
             v2 = e2.location - o2.location
         elif attached2:
-            v1 = attached2[1].location - attached2[0].location
+            v2 = attached2[1].location - attached2[0].location
         
         p = None
         if (e1 or attached1) and (e2 or attached2):
@@ -175,3 +175,6 @@ class SegmentMover:
         attached1 = self.attached1
         if attached1:
             addAttachedDrivers(self.wall, self.o1, self.o2, attached1[0], attached1[1], False)
+        attached2 = self.attached2
+        if attached2:
+            addAttachedDrivers(self.wall, self.o2, self.o1, attached2[0], attached2[1], False)

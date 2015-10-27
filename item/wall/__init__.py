@@ -93,7 +93,9 @@ def addAttachedDrivers(wallAttached, o1, o2, e1, e2, both=True):
         #
         # <_o1>
         #
-        sign = "+" if o1["l"] else "-"
+        left = o1["l"]
+        end = o1["e"]
+        sign = "+" if (left and not end) or (not left and end) else "-"
         # x
         x = _o1.driver_add("location", 0)
         addTransformsVariable(x, "o1x", o1, "LOC_X")
@@ -356,105 +358,119 @@ class Wall:
         
         return (alongX, not alongX, False)
     
-    def extend(self, empty1, locEnd = None):
-        
-        parent = self.parent
-        
+    def extend(self, o, locEnd = None):
         if locEnd:
             # convert the end location to the coordinate system of the wall
-            locEnd = parent.matrix_world.inverted() * locEnd
+            locEnd = self.parent.matrix_world.inverted() * locEnd
         
-        empty2 = self.getNeighbor(empty1)
-        context = self.context
         op = self.op
+        # are we at the end (1) or at the start (0)
+        end = o["e"]
+        left = o["l"]
+        condition = (left and end) or (not left and not end)
+        # the width of the new wall segment
+        w = o["w"]
+        
+        # Will the wall be extended the left side (True) or on the right one (False)
+        # relative to the original wall segment? This is defined by relative position of the mouse
+        # and the original wall segment.
+        _v = (self.getPrevious(o) if end else o).location
+        v = (o if end else self.getNext(o)).location
+        # vector along the current wall segment
+        u = (v - _v).normalized()
+        extendLeft = True if u.cross(locEnd - _v)[2]>=0 else False
+        
+        # normal to the current wall segment in the direction of the new wall segment to be extended
+        n = ( zAxis.cross(u) if extendLeft else u.cross(zAxis) ).normalized()
+        # Normal with the length equal to the length of the new wall segment to be extended
+        # The length is defined by locEnd
+        N = (n.dot(locEnd-_v) if locEnd else op.length)*n
+        
+        p1 = o.location + N
+        # normal to the line between empty1.location and p1
+        n = n.cross(zAxis) if condition else zAxis.cross(n)
+        p2 = p1 + w*n
+        e1, e2 = self.createExtension(o, p1, p2)
+        
+        # add drivers
+        if end:
+            self.addEndEdgeDrivers(e2, o, e1, True, left)
+        else:
+            self.addEndEdgeDrivers(e2, e1, o, False, left)
+        
+        return e1
+    
+    def createExtension(self, o1, p1, p2):
+        o2 = self.getNeighbor(o1)
+        
+        context = self.context
+        parent = self.parent
         mesh = self.mesh
         meshIndex = mesh["m"]
+        h = mesh["height"]
         counter = parent["counter"] + 1
         group = str(counter)
-        # are we at the end (1) or at the start (0)
-        end = empty1["e"]
-        h = mesh["height"]
-        # the width of the new wall segment
-        w = empty1["w"]
         
         bm = getBmesh(mesh)
         # All vertex groups are in the deform layer.
         # There can be only one deform layer
         layer = bm.verts.layers.deform[0]
         
-        # Will the wall be extended the left side (True) or on the right one (False)
-        # relative to the original wall segment? This is defined by relative position of the mouse
-        # and the original wall segment.
-        _v = (self.getPrevious(empty1) if end else empty1).location
-        v = (empty1 if end else self.getNext(empty1)).location
-        # vector along the current wall segment
-        u = (v - _v).normalized()
-        extendLeft = True if u.cross(locEnd - _v)[2]>=0 else False
+        # the width of the new wall segment
+        w = o1["w"]
+        # are we at the end (1) or at the start (0)
+        end = o1["e"]
+        left = o1["l"]
+        condition = (left and end) or (not left and not end)
         
-        left = empty1["l"]
         prefix1 = "l" if left else "r"
         group1 = prefix1 + group
         # prefix for the neighbor verts located to the left or to the right
         prefix2 = "r" if left else "l"
         group2 = prefix2 + group
         # delete the face at the open end of the wall, defined by the related vertex groups
-        verts1 = self.getVertsForVertexGroup(bm, prefix1+empty1["g"])
-        verts2 = self.getVertsForVertexGroup(bm, prefix2+empty1["g"])
+        verts1 = self.getVertsForVertexGroup(bm, prefix1+o1["g"])
+        verts2 = self.getVertsForVertexGroup(bm, prefix2+o1["g"])
         bmesh.ops.delete(
             bm,
             geom=(getFaceFortVerts(verts1, verts2),),
             context=3
         )
         
-        # normal to the current wall segment in the direction of the new wall segement to be extended
-        n = ( zAxis.cross(u) if extendLeft else u.cross(zAxis) ).normalized()
-        # Normal with the length equal to the length of the new wall segment to be extended
-        # The length is defined by locEnd
-        N = (n.dot(locEnd-_v) if locEnd else op.length)*n
-        # continuation of the vertex controlled by empty1, a Blender empty object
-        # normal to the open edge ending by empty1
-        n = (
-                empty1.location - self.getPrevious(empty1).location if end else self.getNext(empty1).location - empty1.location
-            ).cross(zAxis).normalized()
-        
-        loc = empty1.location + N
-        e1 = self.createCornerEmptyObject(group1, loc, False)
+        # <e1>: extension of <o1>
+        e1 = self.createCornerEmptyObject(group1, p1, False)
         setCustomAttributes(e1, l=1 if left else 0, e=end, g=group, w=w, m=meshIndex)
         if end:
-            setCustomAttributes(e1, p=empty1["g"])
-            setCustomAttributes(empty1, n=group)
+            setCustomAttributes(e1, p=o1["g"])
+            setCustomAttributes(o1, n=group)
         else:
-            setCustomAttributes(e1, n=empty1["g"])
-            setCustomAttributes(empty1, p=group)
-        del empty1["e"]
+            setCustomAttributes(e1, n=o1["g"])
+            setCustomAttributes(o1, p=group)
+        del o1["e"]
         # create also the accompanying verts
-        v1_1 = bm.verts.new(e1.location)
-        v1_2 = bm.verts.new(v1_1.co + h*zAxis)
-        # neighbor of e1
-        # normal to the line between empty1.location and e1.location
-        n = n.cross(zAxis)
-        if not end:
-            n = -n
-        e2 = self.createCornerEmptyObject(group2, loc + w*n, True)
+        v1_1 = bm.verts.new(p1)
+        v1_2 = bm.verts.new(p1 + h*zAxis)
+        
+        # <e2>: extension of <o2>, neighbor of <e1>
+        e2 = self.createCornerEmptyObject(group2, p2, True)
         setCustomAttributes(e2, l=0 if left else 1, e=end, g=group, w=w, m=meshIndex)
         if end:
-            setCustomAttributes(e2, p=empty1["g"])
-            setCustomAttributes(empty2, n=group)
+            setCustomAttributes(e2, p=o1["g"])
+            setCustomAttributes(o2, n=group)
         else:
-            setCustomAttributes(e2, n=empty1["g"])
-            setCustomAttributes(empty2, p=group)
-        del empty2["e"]
+            setCustomAttributes(e2, n=o1["g"])
+            setCustomAttributes(o2, p=group)
+        del o2["e"]
         # create also the accompanying verts
         v2_1 = bm.verts.new(e2.location)
         v2_2 = bm.verts.new(v2_1.co + h*zAxis)
         
         if end:
-            self.addInternalEdgeDrivers(empty2, self.getPrevious(empty1), empty1, e1, 1, left)
+            self.addInternalEdgeDrivers(o2, self.getPrevious(o1), o1, e1, 1, left)
         else:
-            self.addInternalEdgeDrivers(empty2, e1, empty1, self.getNext(empty1), 0, left)
+            self.addInternalEdgeDrivers(o2, e1, o1, self.getNext(o1), 0, left)
         
         # create all necessary faces
-        condition = (left and end) or (not left and not end)
         bm.faces.new( (verts1[0], verts1[1], v1_2, v1_1) if condition else (v1_1, v1_2, verts1[1], verts1[0]) )
         bm.faces.new( (v1_1, v1_2, v2_2, v2_1) if condition else (v2_1, v2_2, v1_2, v1_1) )
         bm.faces.new((v2_1, v2_2, verts2[1], verts2[0]) if condition else (verts2[0], verts2[1], v2_2, v2_1) )
@@ -486,23 +502,17 @@ class Wall:
         addHookModifier(mesh, group1, e1, group1)
         addHookModifier(mesh, group2, e2, group2)
         
-        # add drivers
-        if end:
-            self.addEndEdgeDrivers(e2, empty1, e1, True, left)
-        else:
-            self.addEndEdgeDrivers(e2, e1, empty1, False, left)
-
         # create Blender EMPTY objects for the just created wall segment:
         if end:
-            s1 = self.createSegmentEmptyObject(empty1, e1, self.parent, False)
-            s2 = self.createSegmentEmptyObject(empty2, e2, self.parent, True)
+            s1 = self.createSegmentEmptyObject(o1, e1, self.parent, False)
+            s2 = self.createSegmentEmptyObject(o2, e2, self.parent, True)
         else:
-            s1 = self.createSegmentEmptyObject(e1, empty1, self.parent, False)
-            s2 = self.createSegmentEmptyObject(e2, empty2, self.parent, True)
+            s1 = self.createSegmentEmptyObject(e1, o1, self.parent, False)
+            s2 = self.createSegmentEmptyObject(e2, o2, self.parent, True)
         setCustomAttributes(s1, m=meshIndex)
         setCustomAttributes(s2, m=meshIndex)
         
-        return e1
+        return e1, e2
     
     def complete(self, left):
         mesh = self.mesh
@@ -997,6 +1007,41 @@ class Wall:
         
         return lEmpty if atRight else rEmpty
     
+    def completeAttachedWall(self, o, targetWall, target):
+        e2 = targetWall.getCornerEmpty(target)
+        e1 = targetWall.getPrevious(e2)
+        # vector along the target wall segment
+        u = e2.location - e1.location
+        # Will the attached wall be located on the left side (True) or on the right one (False)
+        # relative to the target wall segment? This is defined by relative position of <o>
+        # and the target wall segment defined by <e1> and <e2>.
+        attachLeft = True if u.cross(o.location - e1.location)[2]>=0 else False
+        
+        if (attachLeft and not e1["l"]) or (not attachLeft and e1["l"]):
+            # the attached wall to be created can't cross the current wall segment!
+            e1 = targetWall.getNeighbor(e1)
+            e2 = targetWall.getNeighbor(e2)
+        
+        # find where continuation of <o> will meet the target wall defined by <e1> and <e2>
+        # normal to the target wall segment
+        n = u.cross(zAxis).normalized()
+        p1 = o.location - n.dot(o.location-e1.location)*n
+        # normal to the wall segment defined by <o> and <p>
+        n = (p1 - o.location).cross(zAxis).normalized()
+        if not o["l"]:
+            n = -n
+        # continuation of the neighbor of <o>
+        p2 = p1 + o["w"]*n
+        
+        _e1, _e2 = self.createExtension(o, p1, p2)
+        
+        setCustomAttributes(_e1, t="wa", al=1 if attachLeft else 0)
+        setCustomAttributes(_e2, t="wa", al=1 if attachLeft else 0)
+        
+        addAttachedDrivers(self, _e1, o, e1, e2)
+        
+        return e1
+    
     def move_invoke(self, op, context, event, o):
         from base.mover_segment import SegmentMover
         from base.mover_along_line import AlongSegmentMover, AttachedMover
@@ -1022,6 +1067,9 @@ class Wall:
         op.lastOperator = getLastOperator(context)
         op.mover = mover
         op.finished = False
+        # The order how self.mover.start() and context.window_manager.modal_handler_add(self)
+        # are called is important. If they are called in the reversed order, it won't be possible to
+        # capture X, Y, Z keys
         mover.start()
         context.window_manager.modal_handler_add(op)
         return {'RUNNING_MODAL'}
@@ -1029,7 +1077,7 @@ class Wall:
     def move_modal(self, op, context, event, o):
         operator = getLastOperator(context)
         if op.blockAxisConstraint and event.type in {'X', 'Y', 'Z'}:
-            # block pressing X, Y, Z keys
+            # capture X, Y, Z keys
             return {'RUNNING_MODAL'}
         if op.finished:
             op.mover.end()
