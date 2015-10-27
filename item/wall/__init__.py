@@ -63,6 +63,7 @@ def addSegmentDrivers(e, e0, e1):
 def addAttachedDrivers(wallAttached, o1, o2, e1, e2, both=True):
     # neighbor of <o1>
     _o1 = wallAttached.getNeighbor(o1)
+    end = o1["e"]
     # delete corner drivers
     o1.driver_remove("location")
     if both:
@@ -107,7 +108,7 @@ def addAttachedDrivers(wallAttached, o1, o2, e1, e2, both=True):
         addTransformsVariable(x, "e2x", e2, "LOC_X")
         addTransformsVariable(x, "e1y", e1, "LOC_Y")
         addTransformsVariable(x, "e2y", e2, "LOC_Y")
-        addSinglePropVariable(x, "w", o2, "[\"w\"]")
+        addSinglePropVariable(x, "w", o1 if end else o2, "[\"w\"]")
         x.driver.expression = "o1x"+sign+"w*do*(e2x-e1x)/( (o2y-o1y)*(e2x-e1x)+(o1x-o2x)*(e2y-e1y) )"
         # y
         y = _o1.driver_add("location", 1)
@@ -120,7 +121,7 @@ def addAttachedDrivers(wallAttached, o1, o2, e1, e2, both=True):
         addTransformsVariable(y, "e2x", e2, "LOC_X")
         addTransformsVariable(y, "e1y", e1, "LOC_Y")
         addTransformsVariable(y, "e2y", e2, "LOC_Y")
-        addSinglePropVariable(y, "w", o2, "[\"w\"]")
+        addSinglePropVariable(y, "w", o1 if end else o2, "[\"w\"]")
         y.driver.expression = "o1y"+sign+"w*do*(e2y-e1y)/( (o2y-o1y)*(e2x-e1x)+(o1x-o2x)*(e2y-e1y) )"
 
 
@@ -575,14 +576,17 @@ class Wall:
     
     def flipControls(self, o):
         left = o["l"]
-        prefix1 = "l" if left else "r"
-        # prefix for the neighbor verts located to the left or to the right
-        prefix2 = "r" if left else "l"
         
         # keep reference to the input EMPTY object
         _o = o 
         
         closed = self.isClosed()
+        
+        if not closed:
+            start = self.getStart(left)
+            end = self.getEnd(left)
+            attached1 = self.getReferencesForAttached(start)
+            attached2 = self.getReferencesForAttached(end)
         
         # 1) deal with corner empties
         o = self.getCornerEmpty(o)
@@ -613,9 +617,7 @@ class Wall:
                 m1 = m2
                 m2 = self.getNext(m2)
         else:
-            start = self.getStart(left)
             hide_select(start, True)
-            end = self.getEnd(left)
             hide_select(end, True)
             m0 = self.getNeighbor(start)
             m1 = self.getNext(m0)
@@ -623,7 +625,10 @@ class Wall:
             
             left = not left
             # start
-            self.addEndEdgeDrivers(start, m0, m1, False, left)
+            if attached1:
+                addAttachedDrivers(self, m0, m1, attached1[0], attached1[1], True)
+            else:
+                self.addEndEdgeDrivers(start, m0, m1, False, left)
             hide_select(m0, False)
             # in-betweens
             if m2:
@@ -640,14 +645,18 @@ class Wall:
             else:
                 m1, m2 = m0, m1
             # end
-            self.addEndEdgeDrivers(end, m1, m2, True, left)
+            if attached2:
+                addAttachedDrivers(self, m2, m1, attached2[0], attached2[1], True)
+            else:
+                self.addEndEdgeDrivers(end, m1, m2, True, left)
             hide_select(m2, False)
         
-        # 2) deal with segment empties
+        # 2) deal with segment empties 
         o = _o
+        meshIndex = o["m"]
         neighbor = None
         for obj in self.parent.children:
-            if obj.type == "EMPTY" and "t" in obj and obj["t"]=="ws":
+            if obj.type == "EMPTY" and "t" in obj and obj["t"]=="ws" and obj["m"]==meshIndex:
                 hide_select(obj, False if obj["l"]==left else True)
                 # find the neighbor of <o> if <o> is a segment EMPTY 
                 if o["t"] == "ws" and not neighbor and obj["g"] == o["g"] and o!=obj:
@@ -698,7 +707,7 @@ class Wall:
     
     def getReferencesForAttached(self, o):
         """
-        Get reference points for the wall segment to which <o> is attached.
+        Get reference EMPTYs for the wall segment to which <o> is attached.
         
         Returns:
             A tuple with corner EMPTYs or None it <o> isn't attache to a wall segment.
