@@ -896,6 +896,7 @@ class Wall:
         objects.active = active
         
     def startAttachedWall(self, o, locEnd):
+        o = self.getCornerEmpty(o)
         parent = self.parent
         
         locEnd.z = 0.

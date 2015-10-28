@@ -55,6 +55,7 @@ class AttachedSegmentMover:
     """
     
     def __init__(self, wallAttached, o, wallOriginal, e2):
+        e2 = wallOriginal.getCornerEmpty(e2)
         self.wallAttached = wallAttached
         self.o = o
         # get neighbor EMPTYs for <o>

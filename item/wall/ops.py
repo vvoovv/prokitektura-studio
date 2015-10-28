@@ -32,12 +32,14 @@ class WallEditAdd(bpy.types.Operator):
 
 class WallEditExtend(bpy.types.Operator):
     bl_idname = "prk.wall_edit_extend"
-    bl_label = "Extend the wall"
-    bl_description = "Extends the wall"
+    bl_label = "Extend the wall or start an attached wall"
+    bl_description = "Extend the wall or start a wall attached to the selected wall segment"
     bl_options = {"REGISTER", "UNDO"}
     
     # states
     set_location = (1,)
+    set_location_finished = (1,)
+    set_length = (1,)
     finished = (1,)
     
     length = bpy.props.FloatProperty(
@@ -52,13 +54,31 @@ class WallEditExtend(bpy.types.Operator):
     def modal(self, context, event):
         state = self.state
         mover = self.mover
-        if state is None:
-            self.state = self.set_location
-            mover.start()
-        elif state is self.set_location:
+        
+        if state is self.set_location:
+            # capture X, Y, Z keys for attached walls
+            if self.attached and event.type in {'X', 'Y', 'Z'}:
+                return {'RUNNING_MODAL'}
             operator = getLastOperator(context)
             if operator != self.lastOperator or event.type in {'RIGHTMOUSE', 'ESC'}:
                 # let cancel event happen, i.e. don't call op.mover.end() immediately
+                self.state = self.set_location_finished if self.attached else self.finished
+                self.lastOperator = operator
+        elif state is self.set_location_finished:
+            # this state is for attached walls only!
+            mover.end()
+            self.state = self.set_length
+            # starting AlongLineMover
+            mover = AlongSegmentMover(mover.wallAttached, mover.o2)
+            self.mover = mover
+            mover.start()
+        elif state is self.set_length:
+            # this state is for attached walls only!
+            operator = getLastOperator(context)
+            # The condition operator != self.lastOperator means,
+            # that the modal operator started by mover.start() finished its work
+            if operator != self.lastOperator or event.type in {'RIGHTMOUSE', 'ESC'}:
+                # let cancel event happen, i.e. don't call mover.end() immediately
                 self.state = self.finished
         elif state is self.finished:
             mover.end()
@@ -66,17 +86,35 @@ class WallEditExtend(bpy.types.Operator):
         return {'PASS_THROUGH'}
     
     def invoke(self, context, event):
-        empty = context.object
+        e = context.object
         locEnd = cursor_2d_to_location_3d(context, event)
-        wall = getWallFromEmpty(context, self, empty, True)
-        if not wall:
-            self.report({"ERROR"}, "To extend the wall, select an EMPTY object at either open end of the wall")
-            return {'FINISHED'}
-        o = wall.extend(empty, locEnd)
-        bpy.ops.object.select_all(action="DESELECT")
-        self.mover = AlongSegmentMover(wall, o)
-        self.state = None
+        # try to get a wall instance assuming <e> is a corner EMPTY located at either open end of the wall
+        wall = getWallFromEmpty(context, self, e, True)
+        if wall:
+            o = wall.extend(e, locEnd)
+            bpy.ops.object.select_all(action="DESELECT")
+            self.mover = AlongSegmentMover(wall, o)
+            # set mode of operation
+            self.attached = False
+        else:
+            # try to get a wall instance assuming <empty> is a segment EMPTY
+            if "t" in e and e["t"]=="ws":
+                wall = getWallFromEmpty(context, self, e, False)
+                if wall:
+                    # wall.startAttachedWall(empty, locEnd) returns segment EMPTY
+                    o = wall.startAttachedWall(e, locEnd)
+                    self.mover = AttachedSegmentMover(getWallFromEmpty(context, self, o), o, wall, e)
+                    # set mode of operation
+                    self.attached = True
+            if not wall:
+                self.report({"ERROR"}, "To extend the wall, select an EMPTY object at either open end of the wall")
+                return {'FINISHED'}
+        self.state = self.set_location
         self.lastOperator = getLastOperator(context)
+        # The order how self.mover.start() and context.window_manager.modal_handler_add(self)
+        # are called is important. If they are called in the reversed order, it won't be possible to
+        # capture X, Y, Z keys
+        self.mover.start()
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
 
@@ -192,68 +230,3 @@ class WallFlipControls(bpy.types.Operator):
             self.report({"ERROR"}, "To flip control points for the wall, select an EMPTY object belonging to the wall")
         wall.flipControls(empty)
         return {'FINISHED'}
-
-
-class WallAttachedStart(bpy.types.Operator):
-    bl_idname = "prk.wall_attached_start"
-    bl_label = "Start an attached wall"
-    bl_description = "Start a wall attached to the selected wall segment"
-    bl_options = {"REGISTER", "UNDO"}
-    
-    # states
-    set_location = (1,)
-    set_location_finished = (1,)
-    set_length = (1,)
-    finished = (1,)
-    
-    def modal(self, context, event):
-        state = self.state
-        mover = self.mover
-        if state is self.set_location:
-            # capture X, Y, Z keys
-            if event.type in {'X', 'Y', 'Z'}:
-                return {'RUNNING_MODAL'}
-            operator = getLastOperator(context)
-            # The condition operator != self.lastOperator means,
-            # that the modal operator started by mover.start() finished its work
-            if operator != self.lastOperator or event.type in {'RIGHTMOUSE', 'ESC'}:
-                # let cancel event happen, i.e. don't call mover.end() immediately
-                self.state = self.set_location_finished
-                self.lastOperator = operator
-        elif state is self.set_location_finished:
-            mover.end()
-            self.state = self.set_length
-            # starting AlongLineMover
-            mover = AlongSegmentMover(mover.wallAttached, mover.o2)
-            self.mover = mover
-            mover.start()
-        elif state is self.set_length:
-            operator = getLastOperator(context)
-            if operator != self.lastOperator or event.type in {'RIGHTMOUSE', 'ESC'}:
-                # let cancel event happen, i.e. don't call mover.end() immediately
-                self.state = self.finished
-        elif state is self.finished:
-            mover.end()
-            return {'FINISHED'}
-        return {'PASS_THROUGH'}
-    
-    def invoke(self, context, event):
-        e = context.scene.objects.active
-        wall = getWallFromEmpty(context, self, e)
-        if not wall:
-            self.report({"ERROR"}, "Select two consequent EMPTY objects belonging to the wall")
-        wall.resetHookModifiers()
-        locEnd = cursor_2d_to_location_3d(context, event)
-        # treat the case if <e> is at the starting open end of the wall
-        e = wall.getNext(e) if "e" in e and not e["e"] else wall.getCornerEmpty(e)
-        # wall.startAttachedWall(empty, locEnd) returns segment EMPTY
-        o = wall.startAttachedWall(e, locEnd)
-        self.mover = AttachedSegmentMover(getWallFromEmpty(context, self, o), o, wall, e)
-        self.state = self.set_location
-        self.lastOperator = getLastOperator(context)
-        # The order how self.mover.start() and context.window_manager.modal_handler_add(self)
-        # are called is important. If they are called in the reversed order, it won't be possible to
-        # capture X, Y, Z keys
-        self.mover.start()
-        context.window_manager.modal_handler_add(self)
-        return {'RUNNING_MODAL'}
