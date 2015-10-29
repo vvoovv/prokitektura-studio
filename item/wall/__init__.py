@@ -671,7 +671,7 @@ class Wall:
         """
         Returns True if <o> is attached to another wall segment or False otherwise
         """
-        return "al" in o
+        return o and "al" in o
             
     def getNeighbor(self, o):
         prefix = "r" if o["l"] else "l"
@@ -689,10 +689,10 @@ class Wall:
         prefix = "l" if o["l"] else "r"
         return self.mesh.modifiers[prefix+o["p"]].object
     
-    def getStart(self, left):
+    def getStart(self, left=True):
         return None if self.isClosed() else self.getEmpty(self.mesh["start"], left)
         
-    def getEnd(self, left):
+    def getEnd(self, left=True):
         return None if self.isClosed() else self.getEmpty(self.mesh["end"], left)
     
     def getEmpty(self, group, left):
@@ -1018,6 +1018,7 @@ class Wall:
         return lEmpty if atRight else rEmpty
     
     def completeAttachedWall(self, o, targetWall, target):
+        # <o> it the free end of the attached wall
         e2 = targetWall.getCornerEmpty(target)
         e1 = targetWall.getPrevious(e2)
         # vector along the target wall segment

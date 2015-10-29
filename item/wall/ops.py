@@ -170,50 +170,62 @@ class WallComplete(bpy.types.Operator):
     bl_description = "Complete the wall or attach its free end to the selected wall segment"
     bl_options = {"REGISTER", "UNDO"}
     
+    def completeAttachedWall(self, wall, o, targetWall, target):
+        # get reference corner EMPTYs for the target wall
+        e2 = targetWall.getCornerEmpty(target)
+        e1 = targetWall.getPrevious(e2)
+        # Check if the wall segment defined by <e1> and <e2> and
+        # the wall segment defined by <o> and its previous EMPTY
+        # are NOT perpedndicular, otherwise it won't be possible to attach <wall>
+        # perpendicular to <targetWall>
+        if abs( (e2.location-e1.location).dot(o.location-wall.getPrevious(o).location) ) < zero2:
+            self.report({"ERROR"}, "Unable to attach the wall perpendicular to the target one!")
+        else:
+            wall.completeAttachedWall(o, targetWall, target)
+    
     def execute(self, context):
+        # check if we need to attach the wall to another wall
+        selected = context.selected_objects
+        if len(selected) == 2:
+            o1 = selected[0]
+            o2 = selected[1]
+            wall1 = getWallFromEmpty(context, self, o1)
+            wall2 = getWallFromEmpty(context, self, o2)
+            if wall1 and wall2:
+                startAttached1 = wall1.isAttached(wall1.getStart())
+                end1 = wall1.getEnd()
+                endAttached1 = wall1.isAttached(end1)
+                startAttached2 = wall2.isAttached(wall2.getStart())
+                end2 = wall2.getEnd()
+                endAttached2 = wall2.isAttached(end2)
+                finished = True
+                if startAttached1 and not endAttached1 and o1==end1 and o2["t"]=="ws":
+                    # wall1 is the wall to be attached and wall2 is the target one
+                    self.completeAttachedWall(wall1, o1, wall2, o2)
+                elif startAttached2 and not endAttached2 and o2==end2 and o1["t"]=="ws":
+                    # wall2 is the wall to be attached and wall1 is the target one
+                    self.completeAttachedWall(wall2, o2, wall1, o1)
+                elif startAttached1 or startAttached2:
+                    if o1["m"] != o2["m"]:
+                        self.report({"ERROR"}, "To attach the wall select the free end of the wall and a target wall segment!")
+                    else:
+                        self.report({"ERROR"}, "Unable to attach the wall to itself!")
+                else:
+                    finished = False
+                if finished:
+                    return {'FINISHED'}
+        
+        # complete the wall defined be the active EMPTY
         o = context.scene.objects.active
         wall = getWallFromEmpty(context, self, o)
         if not wall:
             self.report({"ERROR"}, "To complete the wall, select an EMPTY object belonging to the wall")
-            return {'FINISHED'}
-        if wall.isClosed():
+        elif wall.isClosed():
             self.report({"ERROR"}, "The wall has been already completed!")
-            return {'FINISHED'}
-        
-        left = o["l"]
-        
-        start = wall.getStart(left)
-        if wall.isAttached(start):
-            end = wall.getEnd(left)
-            if wall.isAttached(end):
-                self.report({"ERROR"}, "The wall has been already attached!")
-                return {'FINISHED'}
-            
-            selected = context.selected_objects
-            hasError = True
-            if o == end and len(selected) == 2:
-                target = selected[0] if selected[1] == o else selected[1]
-                if target["t"] == "ws" and o["m"] != target["m"]:
-                    hasError = False
-                    targetWall = getWallFromEmpty(context, self, target)
-                    # get reference corner EMPTYs for the targer wall
-                    e2 = targetWall.getCornerEmpty(target)
-                    e1 = targetWall.getPrevious(e2)
-                    # Check if the wall segment defined by <e1> and <e2> and
-                    # the wall segment defined by <o> and its previous EMPTY
-                    # are NOT perpedndicular, otherwise it won't be possible to attach <wall>
-                    # perpendicular to <targetWall>
-                    if abs( (e2.location-e1.location).dot(o.location-wall.getPrevious(o).location) ) < zero2:
-                        self.report({"ERROR"}, "Unable to attach the wall perpendicular to the target one!")
-                        return {'FINISHED'}
-                    
-                    wall.completeAttachedWall(o, targetWall, target)
-                    
-            if hasError:
-                self.report({"ERROR"}, "To attach the wall select a target wall segment first and then the free end of the wall!")
-                return {'FINISHED'}
+        elif wall.isAttached(wall.getStart()):
+            self.report({"ERROR"}, "Unable to complete an attached wall!")
         else:
-            wall.complete(left)
+            wall.complete(o["l"])
         return {'FINISHED'}
 
 
