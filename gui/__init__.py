@@ -9,24 +9,24 @@ from item.wall import setWidth, getWidth
 
 
 class PanelMain(bpy.types.Panel):
-    bl_label = "Prokitektura"
-    bl_space_type = "PROPERTIES"
-    bl_region_type = "WINDOW"
-    bl_context = "scene"
+    bl_label = "Main"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
+    bl_category = "Prokitektura"
     
     def draw(self, context):
         prk = context.window_manager.prk
         layout = self.layout
                 
-        row = self.layout.split(0.6)
-        row.label("Load a preset:")
-        row.operator_menu_enum("scene.load_preset", "presetCollection")
+        #row = self.layout.split(0.6)
+        #row.label("Load a preset:")
+        #row.operator_menu_enum("scene.load_preset", "presetCollection")
         
-        layout.separator()
-        layout.row().label("Levels:")
-        layout.template_list("PLAN_UL_levels", "", prk, "levels", prk, "levelIndex", rows=3)
+        #layout.separator()
+        #layout.row().label("Levels:")
+        #layout.template_list("PLAN_UL_levels", "", prk, "levels", prk, "levelIndex", rows=3)
         
-        layout.separator()
+        #layout.separator()
         layout.operator("scene.add_item")
         
         layout.separator()
@@ -43,10 +43,10 @@ class PanelMain(bpy.types.Panel):
 
 
 class PanelItem(bpy.types.Panel):
-    bl_label = "Prokitektura"
-    bl_space_type = "PROPERTIES"
-    bl_region_type = "WINDOW"
-    bl_context = "object"
+    bl_label = "Selected"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
+    bl_category = "Prokitektura"
     
     def draw(self, context):
         o = context.scene.objects.active
