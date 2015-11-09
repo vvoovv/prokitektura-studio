@@ -88,7 +88,7 @@ class WallEditExtend(bpy.types.Operator):
     def invoke(self, context, event):
         e = context.object
         locEnd = cursor_2d_to_location_3d(context, event)
-        # try to get a wall instance assuming <e> is a corner EMPTY located at either open end of the wall
+        # try to get a wall instance assuming <e> is a corner EMPTY located at either free end of the wall
         wall = getWallFromEmpty(context, self, e, True)
         if wall:
             o = wall.extend(e, locEnd)
@@ -107,7 +107,7 @@ class WallEditExtend(bpy.types.Operator):
                     # set mode of operation
                     self.attached = True
             if not wall:
-                self.report({"ERROR"}, "To extend the wall, select an EMPTY object at either open end of the wall")
+                self.report({"ERROR"}, "To extend the wall, select an EMPTY object at either free end of the wall")
                 return {'FINISHED'}
         self.state = self.set_location
         self.lastOperator = getLastOperator(context)
@@ -158,7 +158,7 @@ class WallExtend(bpy.types.Operator):
         empty = context.scene.objects.active
         wall = getWallFromEmpty(context, self, empty, True)
         if not wall:
-            self.report({"ERROR"}, "To extend the wall, select an EMPTY object at either open end of the wall")
+            self.report({"ERROR"}, "To extend the wall, select an EMPTY object at either free end of the wall")
             return {'FINISHED'}
         wall.extend(empty)
         return {'FINISHED'}

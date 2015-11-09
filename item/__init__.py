@@ -1,4 +1,5 @@
 from item.wall.ops import *
+from item.window.ops import *
 from item.floor.ops import *
 
 def register():

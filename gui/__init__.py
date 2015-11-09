@@ -3,7 +3,7 @@ import bpy
 from blender_util import modifier_apply_all
 
 from base import pContext
-from base import getLevelLocation
+from base import getLevelLocation, appendFromFile
 
 from item.wall import setWidth, getWidth
 
@@ -27,7 +27,7 @@ class PanelMain(bpy.types.Panel):
         #layout.template_list("PLAN_UL_levels", "", prk, "levels", prk, "levelIndex", rows=3)
         
         #layout.separator()
-        layout.operator("scene.add_item")
+        layout.operator("prk.add_item")
         
         layout.separator()
         box = layout.box()
@@ -106,13 +106,13 @@ class LoadPreset(bpy.types.Operator):
 
 
 class AddItem(bpy.types.Operator):
-    bl_idname = "scene.add_item"
+    bl_idname = "prk.add_item"
     bl_label = "Add an item..."
-    bl_description = "Adds an item"
+    bl_description = "Add an item"
     bl_options = {"REGISTER", "UNDO"}
     
     filepath = bpy.props.StringProperty(
-        subtype="FILE_PATH",
+        subtype="FILE_PATH"
     )
     
     def invoke(self, context, event):
@@ -121,20 +121,7 @@ class AddItem(bpy.types.Operator):
         return {"RUNNING_MODAL"}
     
     def execute(self, context):
-        # deselect everything, so we can identify the newly appended objects
-        bpy.ops.object.select_all(action="DESELECT")
-        files = []
-        with bpy.data.libraries.load(self.filepath) as (data_from, data_to):
-            for name in data_from.objects:
-                files.append({'name': name})
-        
-        bpy.ops.wm.append(directory=self.filepath+"/Object/", files=files)
-        # finding the parent object
-        for obj in context.selected_objects:
-            if not obj.parent:
-                break
-        # perform cleanup
-        bpy.ops.object.select_all(action="DESELECT")
+        obj = appendFromFile(context, self.filepath)
         # mark parent object as a container
         obj["container"] = 1
         obj.location = getLevelLocation(context)

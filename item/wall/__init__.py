@@ -163,10 +163,14 @@ def setWidth(self, value):
 class GuiWall:
     
     def draw(self, context, layout):
-        layout.operator("prk.floor_make")
-        layout.separator()
-        layout.operator("prk.wall_flip_controls")
         o = context.scene.objects.active
+        
+        layout.operator("prk.floor_make")
+        
+        layout.separator()
+        layout.operator("prk.add_window")
+        
+        layout.operator("prk.wall_flip_controls")
         if o["t"] == "ws" or o["t"] == "wc":
             box = layout.box()
             box.prop(context.window_manager.prk, "widthForAllSegments")
@@ -1052,6 +1056,13 @@ class Wall:
         addAttachedDrivers(self, _e1, o, e1, e2)
         
         return e1
+    
+    def insert(self, o, obj, constructor):
+        o2 = self.getCornerEmpty(o)
+        o1 = self.getPrevious(o2)
+        parent_set(obj, self.parent)
+        # create an instance with <constructor>
+        obj = constructor(obj, self, o1, o2)
     
     def move_invoke(self, op, context, event, o):
         from base.mover_segment import SegmentMover
