@@ -45,6 +45,13 @@ def addHookModifier(obj, name, hookObj, vertexGroup):
     m.vertex_group = vertexGroup
     m.object = hookObj
     return m
+
+
+def addBooleanModifier(obj, name, operand, operation="DIFFERENCE"):
+    m = obj.modifiers.new(name=name, type='BOOLEAN')
+    m.operation = operation
+    m.object = operand
+    return m
     
 
 def createPolyCurve(name, location, points):
