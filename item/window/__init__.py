@@ -1,5 +1,5 @@
 from blender_util import addBooleanModifier
-from item.wall import addTransformsVariable, addLocDiffVariable
+from item.wall import addTransformsVariable, addLocDiffVariable, addSinglePropVariable
 
 class Window:
     
@@ -42,18 +42,29 @@ class Window:
     def keepRatioCenter(self, o1, o2):
         # the current ratio is 0.5
         k = 0.5
-        sign = "+" if o1["l"] else "-"
+        sign1 = "+" if o1["l"] else "-"
+        sign2 = "-" if o1["l"] else "+"
         
         x = self.obj.driver_add("location", 0)
         addTransformsVariable(x, "x1", o1, "LOC_X")
         addTransformsVariable(x, "x2", o2, "LOC_X")
+        addTransformsVariable(x, "y1", o1, "LOC_Y")
+        addTransformsVariable(x, "y2", o2, "LOC_Y")
         addLocDiffVariable(x, "d", o1, o2)
-        addTransformsVariable(x, "w", self.width, "LOC_X")
-        x.driver.expression = "x1+(x2-x1)*("+str(k)+sign+"w/2/d)"
+        # the width of the window
+        addTransformsVariable(x, "wi", self.width, "LOC_X")
+        # the width of the wall
+        addSinglePropVariable(x, "wa", o2, "[\"w\"]")
+        x.driver.expression = "x1+(x2-x1)*("+str(k)+sign1+"wi/2/d)"+sign1+"(y2-y1)*wa/2/d"
         
         y = self.obj.driver_add("location", 1)
         addTransformsVariable(y, "y1", o1, "LOC_Y")
         addTransformsVariable(y, "y2", o2, "LOC_Y")
+        addTransformsVariable(y, "x1", o1, "LOC_X")
+        addTransformsVariable(y, "x2", o2, "LOC_X")
         addLocDiffVariable(y, "d", o1, o2)
-        addTransformsVariable(y, "w", self.width, "LOC_X")
-        y.driver.expression = "y1+(y2-y1)*("+str(k)+sign+"w/2/d)"
+        # the width of the window
+        addTransformsVariable(y, "wi", self.width, "LOC_X")
+        # the width of the wall
+        addSinglePropVariable(y, "wa", o2, "[\"w\"]")
+        y.driver.expression = "y1+(y2-y1)*("+str(k)+sign1+"wi/2/d)"+sign2+"(x2-x1)*wa/2/d"
