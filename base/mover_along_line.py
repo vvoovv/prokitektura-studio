@@ -13,6 +13,7 @@ class Mover:
         o = self.o
         # create a master EMPTY resembling <o>
         master = createEmptyObject("tmp", o.location, empty_draw_type=o.empty_draw_type, empty_draw_size=o.empty_draw_size)
+        master.lock_location[2] = True
         self.master = master
         # rotate master along the line defined by point1 and point2
         master.rotation_euler[2] = math.atan2(point2.y-point1.y, point2.x-point1.x)

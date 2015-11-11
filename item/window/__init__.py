@@ -13,6 +13,16 @@ class Window:
         obj.location = o2.location if left else o1.location
         obj.location.z = self.floorToWindow
         
+        # set drivers for EMPTYs controlling interior and exterior parts of the window
+        # the interior part
+        i = self.int.driver_add("location", 1)
+        addSinglePropVariable(i, "w", o2, "[\"w\"]")
+        i.driver.expression = "-w/2."
+        # the exterior part
+        e = self.ext.driver_add("location", 1)
+        addSinglePropVariable(e, "w", o2, "[\"w\"]")
+        e.driver.expression = "w/2."
+        
         addBooleanModifier(wall.mesh, o2["g"], self.envelope)
         
         rz = obj.driver_add("rotation_euler", 2)
@@ -28,14 +38,15 @@ class Window:
     def lookup(self):
         lookups = {
             'env': 'envelope',
-            'width': 'width'
+            'width': 'width',
+            'int': 'int',
+            'ext': 'ext'
         }
-        numLookups = len(lookups)
         for o in self.obj.children:
             if "t" in o and o["t"] in lookups:
                 setattr(self, lookups[o["t"]], o)
-                numLookups -= 1
-                if not numLookups:
+                del lookups[o["t"]]
+                if not len(lookups):
                     # everything is found
                     break
     

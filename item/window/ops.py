@@ -1,6 +1,6 @@
 import bpy
 
-from base import appendFromFile, getLevelLocation
+from base import appendFromFile
 from . import Window
 from item.wall import getWallFromEmpty
 
