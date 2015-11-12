@@ -64,7 +64,7 @@ def getItem(context, op, o):
             o = parent
         if o["t"] in pContext.items:
             item = pContext.items[o["t"]][0](context, op)
-            item.init(parent, _o)
+            item.init(_o)
     return item
 
 

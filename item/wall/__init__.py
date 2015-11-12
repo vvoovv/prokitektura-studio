@@ -1,5 +1,6 @@
 import bmesh
 from base import pContext, getLevelLocation, xAxis, yAxis, zAxis, zero
+from base.item import Item
 from blender_util import *
 
 
@@ -9,7 +10,7 @@ def getWallFromEmpty(context, op, empty, end=False):
     if not (empty and empty.type == "EMPTY" and (not end or "e" in empty)):
         return None
     wall = Wall(context, op)
-    wall.init(empty.parent, empty)
+    wall.init(empty)
     return wall
 
 
@@ -177,7 +178,7 @@ class GuiWall:
             box.prop(context.window_manager.prk, "wallSegmentWidth")
 
 
-class Wall:
+class Wall(Item):
     
     type = "wall"
     
@@ -186,15 +187,11 @@ class Wall:
     emptyPropsCorner = {'empty_draw_type':'CUBE', 'empty_draw_size':0.02}
     emptyPropsSegment = {'empty_draw_type':'SPHERE', 'empty_draw_size':0.05}
     
-    def __init__(self, context, op):
-        self.context = context
-        self.op = op
-    
-    def init(self, parent, o):
+    def init(self, o):
         meshIndex = o["m"]
-        self.parent = parent
-        # getting mesh object
-        for obj in parent.children:
+        self.parent = o.parent
+        # get mesh object
+        for obj in o.parent.children:
             if obj.type == "MESH" and obj["m"] == meshIndex:
                 self.mesh = obj
                 break
@@ -1061,8 +1058,8 @@ class Wall:
         o2 = self.getCornerEmpty(o)
         o1 = self.getPrevious(o2)
         parent_set(obj, self.parent)
-        # create an instance with <constructor>
-        obj = constructor(obj, self, o1, o2)
+        # create an item instance with <constructor> and init the instance
+        constructor(self.context, self.op).create(obj, self, o1, o2)
     
     def move_invoke(self, op, context, event, o):
         from base.mover_segment import SegmentMover

@@ -1,16 +1,45 @@
-from blender_util import addBooleanModifier
+import bpy
+
+from base import pContext
+from base.item import Item
+from base.mover_along_wall import Mover
+from blender_util import addBooleanModifier, getLastOperator
 from item.wall import addTransformsVariable, addLocDiffVariable, addSinglePropVariable
 
-class Window:
+
+class GuiWindow:
+    
+    def draw(self, context, layout):
+        layout.label("A window")
+
+
+class Window(Item):
+
+    type = "window"
+    
+    name = "Window"
     
     floorToWindow = 0.75
-    
-    def __init__(self, obj, wall, o1, o2):
+
+    def init(self, obj):
         self.obj = obj
+        # obj.animation_data.drivers[0] is for rotation, ther order of <o1> and <o2> depends on <left>,
+        # that's why we use obj.animation_data.drivers[1]
+        variables = obj.animation_data.drivers[1].driver.variables
+        self.o1 = variables[0].targets[0].id
+        self.o2 = variables[1].targets[0].id
+        self.lookup()
+    
+    def create(self, obj, wall, o1, o2):
+        self.obj = obj
+        self.o1 = o1
+        self.o2 = o2
         self.lookup()
         
         left = o1["l"]
-        obj.location = o2.location if left else o1.location
+        # set the initial locaton of the object at the middle of the wall segment
+        sign = 1. if left else -1.
+        obj.location = (o1.location + o2.location + sign*self.width.location.x*(o2.location-o1.location).normalized())/2.
         obj.location.z = self.floorToWindow
         
         # set drivers for EMPTYs controlling interior and exterior parts of the window
@@ -32,8 +61,7 @@ class Window:
         addTransformsVariable(rz, "y2", o1 if left else o2, "LOC_Y")
         rz.driver.expression = "atan2(y2-y1,x2-x1)"
         
-        self.keepRatioCenter(o1, o2)
-        
+        self.keepRatioCenter()
     
     def lookup(self):
         lookups = {
@@ -50,11 +78,20 @@ class Window:
                     # everything is found
                     break
     
-    def keepRatioCenter(self, o1, o2):
-        # the current ratio is 0.5
-        k = 0.5
-        sign1 = "+" if o1["l"] else "-"
-        sign2 = "-" if o1["l"] else "+"
+    def keepRatioCenter(self):
+        o1 = self.o1
+        o2 = self.o2
+        left = o1["l"]
+        # calculate the ratio
+        l = self.o2.location - self.o1.location
+        k = (self.obj.location - self.o1.location).dot(l)
+        l = l.length
+        k = k/l
+        # half width of the item
+        w = self.width.location.x/2.
+        k = ( (k-w) if left else (k+w) ) / l
+        sign1 = "+" if left else "-"
+        sign2 = "-" if left else "+"
         
         x = self.obj.driver_add("location", 0)
         addTransformsVariable(x, "x1", o1, "LOC_X")
@@ -79,3 +116,33 @@ class Window:
         # the width of the wall
         addSinglePropVariable(y, "wa", o2, "[\"w\"]")
         y.driver.expression = "y1+(y2-y1)*("+str(k)+sign1+"wi/2/d)"+sign2+"(x2-x1)*wa/2/d"
+
+    def move_invoke(self, op, context, event, o):
+        mover = Mover(self)
+        # keep the following variables in the operator <o>
+        op.state = None
+        op.lastOperator = getLastOperator(context)
+        op.mover = mover
+        op.finished = False
+        # The order how self.mover.start() and context.window_manager.modal_handler_add(self)
+        # are called is important. If they are called in the reversed order, it won't be possible to
+        # capture X, Y, Z keys
+        mover.start()
+        context.window_manager.modal_handler_add(op)
+        return {'RUNNING_MODAL'}
+    
+    def move_modal(self, op, context, event, o):
+        operator = getLastOperator(context)
+        if event.type in {'X', 'Y', 'Z'}:
+            # capture X, Y, Z keys
+            return {'RUNNING_MODAL'}
+        if op.finished:
+            op.mover.end()
+            return {'FINISHED'}
+        if operator != op.lastOperator or event.type in {'RIGHTMOUSE', 'ESC'}:
+            # let cancel event happen, i.e. don't call op.mover.end() immediately
+            op.finished = True
+        return {'PASS_THROUGH'}
+
+
+pContext.register(Window, GuiWindow)
