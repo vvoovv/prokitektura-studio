@@ -1,6 +1,6 @@
 import bpy
 
-class Mover:
+class AlongWallMover:
     
     def __init__(self, item):
         self.item = item

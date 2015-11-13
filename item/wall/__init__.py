@@ -1082,7 +1082,6 @@ class Wall(Item):
             bpy.ops.transform.translate("INVOKE_DEFAULT")
             return {'FINISHED'}
         # keep the following variables in the operator <o>
-        op.state = None
         op.lastOperator = getLastOperator(context)
         op.mover = mover
         op.finished = False

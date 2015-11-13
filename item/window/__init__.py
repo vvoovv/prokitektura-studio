@@ -2,7 +2,8 @@ import bpy
 
 from base import pContext
 from base.item import Item
-from base.mover_along_wall import Mover
+from base.mover_along_wall import AlongWallMover
+from base.mover_size import SizeMover
 from blender_util import addBooleanModifier, getLastOperator
 from item.wall import addTransformsVariable, addLocDiffVariable, addSinglePropVariable
 
@@ -22,13 +23,14 @@ class Window(Item):
     floorToWindow = 0.75
 
     def init(self, obj):
-        self.obj = obj
-        # obj.animation_data.drivers[0] is for rotation, ther order of <o1> and <o2> depends on <left>,
-        # that's why we use obj.animation_data.drivers[1]
-        variables = obj.animation_data.drivers[1].driver.variables
-        self.o1 = variables[0].targets[0].id
-        self.o2 = variables[1].targets[0].id
-        self.lookup()
+        if obj["t"] == self.type:
+            self.obj = obj
+            # obj.animation_data.drivers[0] is for rotation, ther order of <o1> and <o2> depends on <left>,
+            # that's why we use obj.animation_data.drivers[1]
+            variables = obj.animation_data.drivers[1].driver.variables
+            self.o1 = variables[0].targets[0].id
+            self.o2 = variables[1].targets[0].id
+            self.lookup()
     
     def create(self, obj, wall, o1, o2):
         self.obj = obj
@@ -118,7 +120,14 @@ class Window(Item):
         y.driver.expression = "y1+(y2-y1)*("+str(k)+sign1+"wi/2/d)"+sign2+"(x2-x1)*wa/2/d"
 
     def move_invoke(self, op, context, event, o):
-        mover = Mover(self)
+        op.allowZ = False
+        if o["t"] == self.type:
+            mover = AlongWallMover(self)
+            op.allowZ = True
+        elif o["t"] == "width":
+            mover = SizeMover(self, o)
+        elif o["t"] == "height":
+            mover = SizeMover(self, o)
         # keep the following variables in the operator <o>
         op.state = None
         op.lastOperator = getLastOperator(context)
@@ -133,7 +142,10 @@ class Window(Item):
     
     def move_modal(self, op, context, event, o):
         operator = getLastOperator(context)
-        if event.type in {'X', 'Y', 'Z'}:
+        if op.allowZ and event.type == "Z":
+            op.allowZ = False
+            return {'PASS_THROUGH'}
+        elif event.type in {'X', 'Y', 'Z'}:
             # capture X, Y, Z keys
             return {'RUNNING_MODAL'}
         if op.finished:
