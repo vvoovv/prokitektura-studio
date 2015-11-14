@@ -170,6 +170,7 @@ class GuiWall:
         
         layout.separator()
         layout.operator("prk.add_window")
+        layout.operator("prk.add_door")
         
         layout.operator("prk.wall_flip_controls")
         if o["t"] == "ws" or o["t"] == "wc":

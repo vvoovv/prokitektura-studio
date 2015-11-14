@@ -1,14 +1,14 @@
 import bpy
 
 from base import appendFromFile
-from . import Window
+from . import Door
 from item.wall import getWallFromEmpty
 
 
-class AddWindow(bpy.types.Operator):
-    bl_idname = "prk.add_window"
-    bl_label = "Add a window..."
-    bl_description = "Add a window"
+class AddDoor(bpy.types.Operator):
+    bl_idname = "prk.add_door"
+    bl_label = "Add a door..."
+    bl_description = "Add a door"
     bl_options = {"REGISTER", "UNDO"}
     
     filepath = bpy.props.StringProperty(
@@ -23,7 +23,7 @@ class AddWindow(bpy.types.Operator):
         o = context.object
         wall = getWallFromEmpty(context, self, o)
         if not wall:
-            self.report({"ERROR"}, "To insert a window, select an EMPTY object located at a segment of the wall")
+            self.report({"ERROR"}, "To insert a door, select an EMPTY object located at a segment of the wall")
         self.o = o
         self.wall = wall
         
@@ -32,7 +32,7 @@ class AddWindow(bpy.types.Operator):
     
     def execute(self, context):
         obj = appendFromFile(context, self.filepath)
-        self.wall.insert(self.o, obj, Window)
+        self.wall.insert(self.o, obj, Door)
         
         bpy.context.scene.objects.active = obj
         obj.select = True
