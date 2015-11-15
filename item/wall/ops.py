@@ -191,12 +191,19 @@ class WallComplete(bpy.types.Operator):
             o2 = selected[1]
             wall1 = getWallFromEmpty(context, self, o1)
             wall2 = getWallFromEmpty(context, self, o2)
+            left1 = o1["l"]
+            left2 = o2["l"]
             if wall1 and wall2:
-                startAttached1 = wall1.isAttached(wall1.getStart())
-                end1 = wall1.getEnd()
+                if o1["t"]=="ws" and o2["t"]=="ws":
+                    # The special case:
+                    # create a wall segment connecting two wall segments defined by <o1> and <o2>
+                    
+                    return {"FINISHED"}
+                startAttached1 = wall1.isAttached(wall1.getStart(left1))
+                end1 = wall1.getEnd(left1)
                 endAttached1 = wall1.isAttached(end1)
-                startAttached2 = wall2.isAttached(wall2.getStart())
-                end2 = wall2.getEnd()
+                startAttached2 = wall2.isAttached(wall2.getStart(left2))
+                end2 = wall2.getEnd(left2)
                 endAttached2 = wall2.isAttached(end2)
                 finished = True
                 if startAttached1 and not endAttached1 and o1==end1 and o2["t"]=="ws":

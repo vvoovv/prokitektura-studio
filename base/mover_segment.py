@@ -138,7 +138,7 @@ class SegmentMover:
                 # orient <o> along v1, which gives the same effect as orienting <o> along v2
                 dy, dx = v1.y, v1.x
             else:
-                # point where the line defined by v1 and v2 intersect
+                # point where the lines defined by v1 and v2 intersect
                 l1 = (e1, o1) if e1 else attached1
                 l2 = (o2, e2) if e2 else attached2
                 p = intersect_line_line(l1[0].location, l1[1].location, l2[0].location, l2[1].location)[0]
