@@ -517,6 +517,96 @@ class Wall(Item):
         
         return e1, e2
     
+    def createAttachment(self, verts, attachLeft, freeEnd):
+        context = self.context
+        parent = self.parent
+        prk = context.window_manager.prk
+        w = prk.newWallWidth
+        h = prk.newWallHeight
+        atRight = prk.wallAtRight
+        
+        counter = parent["counter"] + 1
+        group0 = str(counter)
+        group1 = str(counter+1)
+        
+        obj = createMeshObject("wall_mesh")
+        meshIndex = counter+2
+        obj["m"] = meshIndex
+        obj["height"] = h
+        obj["start"] = group0
+        obj["end"] = group1
+        obj.hide_select = True
+        bm = getBmesh(obj)
+        # vertex groups are in the deform layer, create one before any operation with bmesh:
+        layer = bm.verts.layers.deform.new()
+        
+        l0 = self.createAttachedEmptyObject("l"+group0, verts[0] if attachLeft else verts[1], False if atRight else True)
+        r0 = self.createAttachedEmptyObject("r"+group0, verts[1] if attachLeft else verts[0], True if atRight else False)
+        l1 = self.createCornerEmptyObject("l"+group1, verts[3] if attachLeft else verts[2], False if atRight else True)
+        r1 = self.createCornerEmptyObject("r"+group1, verts[2] if attachLeft else verts[3], True if atRight else False)
+        
+        setCustomAttributes(l0, l=1, e=0, g=group0, w=w, n=group1, m=meshIndex, al=1 if attachLeft else 0)
+        setCustomAttributes(r0, l=0, e=0, g=group0, w=w, n=group1, m=meshIndex, al=1 if attachLeft else 0)
+        setCustomAttributes(l1, l=1, e=1, g=group1, w=w, p=group0, m=meshIndex)
+        setCustomAttributes(r1, l=0, e=1, g=group1, w=w, p=group0, m=meshIndex)
+        
+        for i in range(len(verts)):
+            verts[i] = bm.verts.new(verts[i])
+        
+        # bottom
+        bm.faces.new( (verts[0], verts[3], verts[2], verts[1]) if attachLeft else (verts[1], verts[2], verts[3], verts[0]) )
+        # top
+        bm.faces.new( (verts[5], verts[6], verts[7], verts[4]) if attachLeft else (verts[4], verts[7], verts[6], verts[5]) )
+        # front
+        bm.faces.new( (verts[0], verts[4], verts[7], verts[3]) if attachLeft else (verts[0], verts[3], verts[7], verts[4]) )
+        # back
+        bm.faces.new( (verts[1], verts[2], verts[6], verts[5]) if attachLeft else (verts[1], verts[5], verts[6], verts[2]) )
+        # left
+        bm.faces.new( (verts[3], verts[7], verts[6], verts[2]) if attachLeft else (verts[0], verts[4], verts[5], verts[1]) )
+        # right
+        bm.faces.new( (verts[1], verts[5], verts[4], verts[0]) if attachLeft else (verts[2], verts[6], verts[7], verts[3]) )
+        
+        # create vertex groups for each vertical wall edge
+        # for the wall origin
+        assignGroupToVerts(obj, layer, "l"+group0, *((verts[0], verts[4]) if attachLeft else (verts[1], verts[5])) )
+        assignGroupToVerts(obj, layer, "r"+group0, *((verts[1], verts[5]) if attachLeft else (verts[0], verts[4])) )
+        # for the wall end
+        assignGroupToVerts(obj, layer, "l"+group1, *((verts[3], verts[7]) if attachLeft else (verts[2], verts[6])) )
+        assignGroupToVerts(obj, layer, "r"+group1, *((verts[2], verts[6]) if attachLeft else (verts[3], verts[7])) )
+        
+        parent["counter"] = counter+2
+
+        bm.to_mesh(obj.data)
+        bm.free()
+        
+        context.scene.update()
+        # perform parenting
+        parent_set((obj, l0, r0, l1, r1), parent)
+        context.scene.update()
+        
+        # add hook modifiers
+        addHookModifier(obj, "l"+group0, l0, "l"+group0)
+        addHookModifier(obj, "r"+group0, r0, "r"+group0)
+        addHookModifier(obj, "l"+group1, l1, "l"+group1)
+        addHookModifier(obj, "r"+group1, r1, "r"+group1)
+        
+        # add drivers
+        if freeEnd:
+            if atRight:
+                self.addEndEdgeDrivers(r0, l0, l1, False, atRight)
+                self.addEndEdgeDrivers(r1, l0, l1, True, atRight)
+            else:
+                self.addEndEdgeDrivers(l0, r0, r1, False, atRight)
+                self.addEndEdgeDrivers(l1, r0, r1, True, atRight)
+            
+        # create Blender EMPTY objects for the attached wall segment:
+        lEmpty = self.createSegmentEmptyObject(l0, l1, parent, False if atRight else True)
+        rEmpty = self.createSegmentEmptyObject(r0, r1, parent, True if atRight else False)
+        setCustomAttributes(lEmpty, m=meshIndex)
+        setCustomAttributes(rEmpty, m=meshIndex)
+        
+        return lEmpty if atRight else rEmpty
+    
     def complete(self, left):
         mesh = self.mesh
         meshIndex = mesh["m"]
@@ -676,8 +766,14 @@ class Wall(Item):
         return o and "al" in o
             
     def getNeighbor(self, o):
-        prefix = "r" if o["l"] else "l"
-        return self.mesh.modifiers[prefix+o["g"]].object
+        if o["t"] == "ws":
+            # we have to iterate through all segment EMPTYs to find the neighbor
+            for obj in self.parent.children:
+                if obj.type == "EMPTY" and "t" in obj and obj["t"]=="ws" and obj["m"]==o["m"] and obj["g"] == o["g"] and obj["l"] != o["l"]:
+                    return obj
+        else:
+            prefix = "r" if o["l"] else "l"
+            return self.mesh.modifiers[prefix+o["g"]].object
     
     def getNext(self, o):
         if "e" in o and o["e"]:
@@ -898,30 +994,25 @@ class Wall(Item):
         objects.active = active
         
     def startAttachedWall(self, o, locEnd):
-        o = self.getCornerEmpty(o)
-        parent = self.parent
-        
         locEnd.z = 0.
         # convert the end location to the coordinate system of the wall
-        locEnd = parent.matrix_world.inverted() * locEnd
-        _v = self.getPrevious(o).location
-        v = o.location
+        locEnd = self.parent.matrix_world.inverted() * locEnd
+        o2 = self.getCornerEmpty(o)
+        o1 = self.getPrevious(o2)
         # vector along the current wall segment
-        u = (v - _v).normalized()
+        u = (o2.location - o1.location).normalized()
         # Will the attached wall be located on the left side (True) or on the right one (False)
         # relative to the original wall segment? This is defined by relative position of the mouse
         # and the original wall segment.
-        attachLeft = True if u.cross(locEnd - _v)[2]>=0 else False
+        attachLeft = True if u.cross(locEnd - o1.location)[2]>=0 else False
         
         if (attachLeft and not o["l"]) or (not attachLeft and o["l"]):
             # the attached wall to be created can't cross the current wall segment!
-            o = self.getNeighbor(o)
-            _v = self.getPrevious(o).location
-            v = o.location
+            o1 = self.getNeighbor(o1)
+            o2 = self.getNeighbor(o2)
         
         context = self.context
         prk = context.window_manager.prk
-        atRight = prk.wallAtRight
         w = prk.newWallWidth
         h = prk.newWallHeight
         H = h*zAxis
@@ -929,95 +1020,16 @@ class Wall(Item):
         # normal to the current wall segment in the direction of the attached wall to be created
         n = ( zAxis.cross(u) if attachLeft else u.cross(zAxis) ).normalized()
         # normal with the length equal to the length of the attached wall defined by locEnd
-        N = n.dot(locEnd-_v)*n
+        N = n.dot(locEnd-o1.location)*n
         # verts of the attached wall along the current wall segment
-        _u = 0.5*(v+_v) - 0.5*w*u
-        u = 0.5*(v+_v) + 0.5*w*u
+        u1 = 0.5*(o1.location + o2.location) - 0.5*w*u
+        u2 = 0.5*(o1.location + o2.location) + 0.5*w*u
         verts = [
-            _u, u, u+N, _u+N,
-            _u+H, u+H, u+N+H, _u+N+H 
+            u1, u2, u2+N, u1+N,
+            u1+H, u2+H, u2+N+H, u1+N+H 
         ]
         
-        counter = parent["counter"] + 1
-        group0 = str(counter)
-        group1 = str(counter+1)
-        
-        obj = createMeshObject("wall_mesh")
-        meshIndex = counter+2
-        obj["m"] = meshIndex
-        obj["height"] = h
-        obj["start"] = group0
-        obj["end"] = group1
-        obj.hide_select = True
-        bm = getBmesh(obj)
-        # vertex groups are in the deform layer, create one before any operation with bmesh:
-        layer = bm.verts.layers.deform.new()
-        
-        l0 = self.createAttachedEmptyObject("l"+group0, verts[0] if attachLeft else verts[1], False if atRight else True)
-        r0 = self.createAttachedEmptyObject("r"+group0, verts[1] if attachLeft else verts[0], True if atRight else False)
-        l1 = self.createCornerEmptyObject("l"+group1, verts[3] if attachLeft else verts[2], False if atRight else True)
-        r1 = self.createCornerEmptyObject("r"+group1, verts[2] if attachLeft else verts[3], True if atRight else False)
-        
-        setCustomAttributes(l0, l=1, e=0, g=group0, w=w, n=group1, m=meshIndex, al=1 if attachLeft else 0)
-        setCustomAttributes(r0, l=0, e=0, g=group0, w=w, n=group1, m=meshIndex, al=1 if attachLeft else 0)
-        setCustomAttributes(l1, l=1, e=1, g=group1, w=w, p=group0, m=meshIndex)
-        setCustomAttributes(r1, l=0, e=1, g=group1, w=w, p=group0, m=meshIndex)
-        
-        for i in range(len(verts)):
-            verts[i] = bm.verts.new(verts[i])
-        
-        # bottom
-        bm.faces.new( (verts[0], verts[3], verts[2], verts[1]) if attachLeft else (verts[1], verts[2], verts[3], verts[0]) )
-        # top
-        bm.faces.new( (verts[5], verts[6], verts[7], verts[4]) if attachLeft else (verts[4], verts[7], verts[6], verts[5]) )
-        # front
-        bm.faces.new( (verts[0], verts[4], verts[7], verts[3]) if attachLeft else (verts[0], verts[3], verts[7], verts[4]) )
-        # back
-        bm.faces.new( (verts[1], verts[2], verts[6], verts[5]) if attachLeft else (verts[1], verts[5], verts[6], verts[2]) )
-        # left
-        bm.faces.new( (verts[3], verts[7], verts[6], verts[2]) if attachLeft else (verts[0], verts[4], verts[5], verts[1]) )
-        # right
-        bm.faces.new( (verts[1], verts[5], verts[4], verts[0]) if attachLeft else (verts[2], verts[6], verts[7], verts[3]) )
-        
-        # create vertex groups for each vertical wall edge
-        # for the wall origin
-        assignGroupToVerts(obj, layer, "l"+group0, *((verts[0], verts[4]) if attachLeft else (verts[1], verts[5])) )
-        assignGroupToVerts(obj, layer, "r"+group0, *((verts[1], verts[5]) if attachLeft else (verts[0], verts[4])) )
-        # for the wall end
-        assignGroupToVerts(obj, layer, "l"+group1, *((verts[3], verts[7]) if attachLeft else (verts[2], verts[6])) )
-        assignGroupToVerts(obj, layer, "r"+group1, *((verts[2], verts[6]) if attachLeft else (verts[3], verts[7])) )
-        
-        parent["counter"] = counter+2
-
-        bm.to_mesh(obj.data)
-        bm.free()
-        
-        context.scene.update()
-        # perform parenting
-        parent_set((obj, l0, r0, l1, r1), parent)
-        context.scene.update()
-        
-        # add hook modifiers
-        addHookModifier(obj, "l"+group0, l0, "l"+group0)
-        addHookModifier(obj, "r"+group0, r0, "r"+group0)
-        addHookModifier(obj, "l"+group1, l1, "l"+group1)
-        addHookModifier(obj, "r"+group1, r1, "r"+group1)
-        
-        # add drivers
-        if atRight:
-            self.addEndEdgeDrivers(r0, l0, l1, False, atRight)
-            self.addEndEdgeDrivers(r1, l0, l1, True, atRight)
-        else:
-            self.addEndEdgeDrivers(l0, r0, r1, False, atRight)
-            self.addEndEdgeDrivers(l1, r0, r1, True, atRight)
-            
-        # create Blender EMPTY objects for the attached wall segment:
-        lEmpty = self.createSegmentEmptyObject(l0, l1, parent, False if atRight else True)
-        rEmpty = self.createSegmentEmptyObject(r0, r1, parent, True if atRight else False)
-        setCustomAttributes(lEmpty, m=meshIndex)
-        setCustomAttributes(rEmpty, m=meshIndex)
-        
-        return lEmpty if atRight else rEmpty
+        return self.createAttachment(verts, attachLeft, True)
     
     def completeAttachedWall(self, o, targetWall, target):
         # <o> it the free end of the attached wall
@@ -1054,6 +1066,73 @@ class Wall(Item):
         addAttachedDrivers(self, _e1, o, e1, e2)
         
         return e1
+    
+    def connect(self, wall, o1, o2):
+        """
+        Connecting two wall segments defined by <o1> and <o2> with a new wall segment.
+        <o1> belongs to <self>, <o2> belongs to <wall>
+        """
+        from mathutils.geometry import intersect_line_line
+        # Try to attach the a new segment perpendicular to <o2> and
+        # try to start the new segment from the middle of <o1>
+        
+        context = self.context
+        prk = context.window_manager.prk
+        w = prk.newWallWidth
+        h = prk.newWallHeight
+        H = h*zAxis
+        
+        o12 = self.getCornerEmpty(o1)
+        o11 = self.getPrevious(o12)
+        o22 = wall.getCornerEmpty(o2)
+        o21 = wall.getPrevious(o22)
+        # The new segment can't cross wall segments defined by <o1> and <o2>,
+        # so check if need to use neighbor of <o11>-<o12> and <o21>-<o22>
+        # The meaning of <attachedLeft> variable is explained in self.startAttachedWall(..) and self.completeAttachedWall(..)
+        # <o11>-<o12>
+        u1 = (o12.location-o11.location).normalized()
+        attachLeft1 = True if u1.cross(o21.location - o11.location)[2]>=0 else False
+        if (attachLeft1 and not o11["l"]) or (not attachLeft1 and o11["l"]):
+            # the attached wall to be created can't cross the current wall segment!
+            o11 = self.getNeighbor(o11)
+            o12 = self.getNeighbor(o12)
+        # normal to the wall segment defined by <o1> in the direction of the connecting wall segment to be created
+        n1 = zAxis.cross(u1) if attachLeft1 else u1.cross(zAxis)
+        # <o21>-<o22>
+        u2 = (o22.location-o21.location).normalized()
+        attachLeft2 = True if u2.cross(o11.location - o21.location)[2]>=0 else False
+        if (attachLeft2 and not o21["l"]) or (not attachLeft2 and o21["l"]):
+            # the attached wall to be created can't cross the current wall segment!
+            o21 = wall.getNeighbor(o21)
+            o22 = wall.getNeighbor(o22)
+        # normal to the wall segment defined by <o2> in the direction of the connecting wall segment to be created
+        n2 = zAxis.cross(u2) if attachLeft2 else u2.cross(zAxis)
+        
+        # verts of the attached wall along <o1>
+        # normal to <n2>
+        n = n2.cross(zAxis)
+        # the middle of <o1>
+        m = (o11.location + o12.location)/2.
+        # verts of the attached wall along <o1>
+        u11 = m - 0.5*w/u1.dot(n)*u1
+        u12 = m + 0.5*w/u1.dot(n)*u1
+        
+        # find intersection of the segment <o2> and its normal <n2> coming through the middle of <o1>
+        p = intersect_line_line(o21.location, o22.location, m, m-n2)[0]
+        # verts of the attached wall along <o2>
+        u21 = p - 0.5*w/u2.dot(n)*u2
+        u22 = p + 0.5*w/u2.dot(n)*u2
+        # dot product indicates if <u1> and <u2> point in the same direction
+        dot = u1.dot(u2)
+        if dot<0.:
+            u21, u22 = u21, u22
+        verts = [
+            u11, u12, u22, u21,
+            u11+H, u12+H, u22+H, u21+H
+        ]
+        
+        return self.createAttachment(verts, attachLeft1, False)
+        
     
     def insert(self, o, obj, constructor):
         o2 = self.getCornerEmpty(o)
