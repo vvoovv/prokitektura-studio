@@ -62,6 +62,17 @@ def addSegmentDrivers(e, e0, e1):
 
 
 def addAttachedDrivers(wallAttached, o1, o2, e1, e2, both=True):
+    """
+    Add drivers for the end <o1> of <wallAttached> that is attached to a wall segment cotrolled by <e1> and <e2>.
+
+    Args:
+        wallAttached (Wall): The attached wall
+        o1: The attached end of <wallAttached> is controlled by <o1>
+        o2: The next or the previous corner EMPTY of <o1>
+        e1: The wall segment to which <o1> is attached is contolled by corner EMPTYs <e1> and <e2>
+        e2: The wall segment to which <o1> is attached is contolled by corner EMPTYs <e1> and <e2>
+        both (bool): Add drivers also for the neighbor of <o1>
+    """
     # neighbor of <o1>
     _o1 = wallAttached.getNeighbor(o1)
     end = o1["e"]
@@ -605,7 +616,7 @@ class Wall(Item):
         setCustomAttributes(lEmpty, m=meshIndex)
         setCustomAttributes(rEmpty, m=meshIndex)
         
-        return lEmpty if atRight else rEmpty
+        return (l0, lEmpty, l1) if atRight else (r0, rEmpty, r1)
     
     def complete(self, left):
         mesh = self.mesh
@@ -1029,7 +1040,7 @@ class Wall(Item):
             u1+H, u2+H, u2+N+H, u1+N+H 
         ]
         
-        return self.createAttachment(verts, attachLeft, True)
+        return self.createAttachment(verts, attachLeft, True)[1]
     
     def completeAttachedWall(self, o, targetWall, target):
         # <o> it the free end of the attached wall
@@ -1143,8 +1154,16 @@ class Wall(Item):
             u11+H, u12+H, u22+H, u21+H
         ]
         
-        return self.createAttachment(verts, attachLeft1, False)
+        # <a1>, <a2> are corner EMPTYs controlling the attached segment
+        # <a> is a segment EMPTY fot the attached segment
+        a1, a, a2 = self.createAttachment(verts, attachLeft1, False)
+        wallAttached = getWallFromEmpty(context, self.op, a)
         
+        # create drivers
+        addAttachedDrivers(wallAttached, a1, a2, o11, o12, True)
+        addAttachedDrivers(wallAttached, a2, a1, o21, o22, True)
+        
+        return a
     
     def insert(self, o, obj, constructor):
         o2 = self.getCornerEmpty(o)
