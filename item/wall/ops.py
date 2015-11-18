@@ -197,9 +197,6 @@ class WallComplete(bpy.types.Operator):
                 if o1["t"]=="ws" and o2["t"]=="ws":
                     # The special case:
                     # connecting two wall segments defined by <o1> and <o2> with a new wall segment
-                    if context.object == o2:
-                        wall1, wall2 = wall2, wall1
-                        o1, o2 = o2, o1
                     wall1.connect(wall2, o1, o2)
                     return {"FINISHED"}
                 startAttached1 = wall1.isAttached(wall1.getStart(left1))

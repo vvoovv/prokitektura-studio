@@ -1067,44 +1067,56 @@ class Wall(Item):
         
         return e1
     
-    def connect(self, wall, o1, o2):
+    def connect(self, wall2, o1, o2):
         """
-        Connecting two wall segments defined by <o1> and <o2> with a new wall segment.
-        <o1> belongs to <self>, <o2> belongs to <wall>
+        Connect two wall segments defined by <o1> and <o2> with a new wall segment.
+        <o1> belongs to <self>, <o2> belongs to <wall2>
         """
         from mathutils.geometry import intersect_line_line
-        # Try to attach the a new segment perpendicular to <o2> and
-        # try to start the new segment from the middle of <o1>
+        # Try to attach a new segment perpendicular to longest one from <o1> and <o2> and
+        # try to start the new segment from the middle of the shortest from <o1> and <o2>
         
+        wall1 = self
         context = self.context
         prk = context.window_manager.prk
         w = prk.newWallWidth
         h = prk.newWallHeight
         H = h*zAxis
         
-        o12 = self.getCornerEmpty(o1)
-        o11 = self.getPrevious(o12)
-        o22 = wall.getCornerEmpty(o2)
-        o21 = wall.getPrevious(o22)
+        o12 = wall1.getCornerEmpty(o1)
+        o11 = wall1.getPrevious(o12)
+        o22 = wall2.getCornerEmpty(o2)
+        o21 = wall2.getPrevious(o22)
         # The new segment can't cross wall segments defined by <o1> and <o2>,
         # so check if need to use neighbor of <o11>-<o12> and <o21>-<o22>
         # The meaning of <attachedLeft> variable is explained in self.startAttachedWall(..) and self.completeAttachedWall(..)
         # <o11>-<o12>
-        u1 = (o12.location-o11.location).normalized()
+        u1 = o12.location-o11.location
+        u1l = u1.length
+        u1 = u1/u1l
+        # <o21>-<o22>
+        u2 = o22.location-o21.location
+        u2l = u2.length
+        u2 = u2/u2l
+        
+        # flip <o1> and <o2> inf necessary
+        if u2l<u1l:
+            o11, o12, o21, o22, u1, u2 = o21, o22, o11, o12, u2, u1
+        
+        # <o11>-<o12>
         attachLeft1 = True if u1.cross(o21.location - o11.location)[2]>=0 else False
         if (attachLeft1 and not o11["l"]) or (not attachLeft1 and o11["l"]):
             # the attached wall to be created can't cross the current wall segment!
-            o11 = self.getNeighbor(o11)
-            o12 = self.getNeighbor(o12)
+            o11 = wall1.getNeighbor(o11)
+            o12 = wall1.getNeighbor(o12)
         # normal to the wall segment defined by <o1> in the direction of the connecting wall segment to be created
         n1 = zAxis.cross(u1) if attachLeft1 else u1.cross(zAxis)
         # <o21>-<o22>
-        u2 = (o22.location-o21.location).normalized()
         attachLeft2 = True if u2.cross(o11.location - o21.location)[2]>=0 else False
         if (attachLeft2 and not o21["l"]) or (not attachLeft2 and o21["l"]):
             # the attached wall to be created can't cross the current wall segment!
-            o21 = wall.getNeighbor(o21)
-            o22 = wall.getNeighbor(o22)
+            o21 = wall2.getNeighbor(o21)
+            o22 = wall2.getNeighbor(o22)
         # normal to the wall segment defined by <o2> in the direction of the connecting wall segment to be created
         n2 = zAxis.cross(u2) if attachLeft2 else u2.cross(zAxis)
         
