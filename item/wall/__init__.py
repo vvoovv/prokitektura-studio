@@ -553,8 +553,12 @@ class Wall(Item):
         
         l0 = self.createAttachedEmptyObject("l"+group0, verts[0] if attachLeft else verts[1], False if atRight else True)
         r0 = self.createAttachedEmptyObject("r"+group0, verts[1] if attachLeft else verts[0], True if atRight else False)
-        l1 = self.createCornerEmptyObject("l"+group1, verts[3] if attachLeft else verts[2], False if atRight else True)
-        r1 = self.createCornerEmptyObject("r"+group1, verts[2] if attachLeft else verts[3], True if atRight else False)
+        if freeEnd:
+            l1 = self.createCornerEmptyObject("l"+group1, verts[3] if attachLeft else verts[2], False if atRight else True)
+            r1 = self.createCornerEmptyObject("r"+group1, verts[2] if attachLeft else verts[3], True if atRight else False)
+        else:
+            l1 = self.createAttachedEmptyObject("l"+group1, verts[3] if attachLeft else verts[2], False if atRight else True)
+            r1 = self.createAttachedEmptyObject("r"+group1, verts[2] if attachLeft else verts[3], True if atRight else False)
         
         setCustomAttributes(l0, l=1, e=0, g=group0, w=w, n=group1, m=meshIndex, al=1 if attachLeft else 0)
         setCustomAttributes(r0, l=0, e=0, g=group0, w=w, n=group1, m=meshIndex, al=1 if attachLeft else 0)
@@ -1040,7 +1044,15 @@ class Wall(Item):
             u1+H, u2+H, u2+N+H, u1+N+H 
         ]
         
-        return self.createAttachment(verts, attachLeft, True)[1]
+        # <a1>, <a2> are corner EMPTYs controlling the attached segment
+        # <a> is a segment EMPTY fot the attached segment
+        a1, a, a2 = self.createAttachment(verts, attachLeft, True)
+        wallAttached = getWallFromEmpty(context, self.op, a)
+        
+        # create drivers
+        addAttachedDrivers(wallAttached, a1, a2, o1, o2, True)
+        
+        return a
     
     def completeAttachedWall(self, o, targetWall, target):
         # <o> it the free end of the attached wall
@@ -1110,8 +1122,9 @@ class Wall(Item):
         u2l = u2.length
         u2 = u2/u2l
         
-        # flip <o1> and <o2> inf necessary
+        # flip <wall1> and <wall2> if necessary
         if u2l<u1l:
+            wall1, wall2 = wall2, wall1
             o11, o12, o21, o22, u1, u2 = o21, o22, o11, o12, u2, u1
         
         # <o11>-<o12>
@@ -1158,6 +1171,9 @@ class Wall(Item):
         # <a> is a segment EMPTY fot the attached segment
         a1, a, a2 = self.createAttachment(verts, attachLeft1, False)
         wallAttached = getWallFromEmpty(context, self.op, a)
+        # set additional attribute for <a2> and its neighbor
+        setCustomAttributes(a2, al=1 if attachLeft2 else 0)
+        setCustomAttributes(wallAttached.getNeighbor(a2), al=1 if attachLeft2 else 0)
         
         # create drivers
         addAttachedDrivers(wallAttached, a1, a2, o11, o12, True)

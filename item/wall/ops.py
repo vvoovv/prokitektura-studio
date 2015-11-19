@@ -3,7 +3,7 @@ import bpy
 from blender_util import cursor_2d_to_location_3d, getLastOperator
 from . import Wall, getWallFromEmpty
 from base import zero2
-from base.mover_segment import AttachedSegmentMover
+from base.mover_segment import SegmentMover
 from base.mover_along_line import AlongSegmentMover
 
 
@@ -67,9 +67,10 @@ class WallEditExtend(bpy.types.Operator):
         elif state is self.set_location_finished:
             # this state is for attached walls only!
             mover.end()
+            mover.o.select = False
             self.state = self.set_length
             # starting AlongLineMover
-            mover = AlongSegmentMover(mover.wallAttached, mover.o2)
+            mover = AlongSegmentMover(mover.wall, mover.o2)
             self.mover = mover
             mover.start()
         elif state is self.set_length:
@@ -103,7 +104,8 @@ class WallEditExtend(bpy.types.Operator):
                 if wall:
                     # wall.startAttachedWall(empty, locEnd) returns segment EMPTY
                     o = wall.startAttachedWall(e, locEnd)
-                    self.mover = AttachedSegmentMover(getWallFromEmpty(context, self, o), o, wall, e)
+                    bpy.ops.object.select_all(action="DESELECT")
+                    self.mover = SegmentMover(getWallFromEmpty(context, self, o), o)
                     # set mode of operation
                     self.attached = True
             if not wall:
@@ -183,6 +185,35 @@ class WallComplete(bpy.types.Operator):
         else:
             wall.completeAttachedWall(o, targetWall, target)
     
+    def connectSegments(self, context, wall1, wall2, o1, o2):
+        o = wall1.connect(wall2, o1, o2)
+        
+        bpy.ops.object.select_all(action="DESELECT")
+        
+        self.lastOperator = getLastOperator(context)
+        mover = SegmentMover(getWallFromEmpty(context, self, o), o)
+        self.mover = mover
+        self.finished = False
+        # The order how self.mover.start() and context.window_manager.modal_handler_add(self)
+        # are called is important. If they are called in the reversed order, it won't be possible to
+        # capture X, Y, Z keys
+        mover.start()
+        context.window_manager.modal_handler_add(self)
+        return {'RUNNING_MODAL'}
+    
+    def modal(self, context, event):
+        operator = getLastOperator(context)
+        if event.type in {'X', 'Y', 'Z'}:
+            # capture X, Y, Z keys
+            return {'RUNNING_MODAL'}
+        if self.finished:
+            self.mover.end()
+            return {'FINISHED'}
+        if operator != self.lastOperator or event.type in {'RIGHTMOUSE', 'ESC'}:
+            # let cancel event happen, i.e. don't call op.mover.end() immediately
+            self.finished = True
+        return {'PASS_THROUGH'}
+    
     def execute(self, context):
         # check if we need to attach the wall to another wall
         selected = context.selected_objects
@@ -197,8 +228,7 @@ class WallComplete(bpy.types.Operator):
                 if o1["t"]=="ws" and o2["t"]=="ws":
                     # The special case:
                     # connecting two wall segments defined by <o1> and <o2> with a new wall segment
-                    wall1.connect(wall2, o1, o2)
-                    return {"FINISHED"}
+                    return self.connectSegments(context, wall1, wall2, o1, o2)
                 startAttached1 = wall1.isAttached(wall1.getStart(left1))
                 end1 = wall1.getEnd(left1)
                 endAttached1 = wall1.isAttached(end1)
