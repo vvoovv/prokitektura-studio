@@ -84,7 +84,7 @@ class SegmentMover:
         p = None
         if (e1 or attached1) and (e2 or attached2):
             # check if v1 and v2 are parallel
-            if v1.cross(v2).length < zero2:
+            if v1.normalized().cross(v2.normalized()).length < zero2:
                 # orient <o> along v1, which gives the same effect as orienting <o> along v2
                 dy, dx = v1.y, v1.x
             else:

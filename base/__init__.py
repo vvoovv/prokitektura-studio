@@ -6,7 +6,7 @@ yAxis = Vector((0., 1., 0.))
 zAxis = Vector((0., 0., 1.))
 
 zero = 0.000001
-zero2 = 0.0005
+zero2 = 0.0001
 
 
 def strf(value):
