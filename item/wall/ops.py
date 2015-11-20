@@ -25,7 +25,9 @@ class WallEditAdd(bpy.types.Operator):
     def invoke(self, context, event):
         locEnd = cursor_2d_to_location_3d(context, event)
         wall = Wall(context, self)
-        constraint_axis = wall.create(locEnd)
+        o = context.object
+        parent = o.parent if o and context.selected_objects and "t" in o and (o["t"]=="wc" or o["t"]=="ws" or o["t"]=="wa") else None
+        constraint_axis = wall.create(locEnd, parent)
         bpy.ops.transform.translate('INVOKE_DEFAULT', constraint_axis=constraint_axis, constraint_orientation='LOCAL')
         return {'FINISHED'}
     

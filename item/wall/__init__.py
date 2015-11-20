@@ -208,7 +208,9 @@ class Wall(Item):
                 self.mesh = obj
                 break
     
-    def create(self, locEnd=None):
+    def create(self, locEnd=None, parent=None):
+        from mathutils import Vector
+        
         context = self.context
         prk = context.window_manager.prk
         op = self.op
@@ -221,6 +223,10 @@ class Wall(Item):
         alongX = False
         # check if the initial wall segment should be oriented along X-axis or along Y-axis
         if locEnd:
+            if parent:
+                # convert to the coordinate system of <parent>
+                locEnd = parent.matrix_world.inverted() * locEnd
+                loc = parent.matrix_world.inverted() * loc
             dx = locEnd.x-loc.x
             dy = locEnd.y-loc.y
             if abs(dx) > abs(dy):
@@ -233,20 +239,29 @@ class Wall(Item):
             
         atRight = context.window_manager.prk.wallAtRight
         
-        # parent one vert mesh
-        parent = createOneVertObject("Wall", loc)
-        # type
-        parent["t"] = Wall.type
-        parent["container"] = 1
-        parent.dupli_type = "VERTS"
-        parent.hide_select = True
-        meshIndex = 2
-        parent["counter"] = meshIndex
+        if parent:
+            counter = parent["counter"] + 1
+            group0 = str(counter)
+            group1 = str(counter+1)
+            meshIndex = counter+2
+        else:
+            # parent one vert mesh
+            parent = createOneVertObject("Wall", loc)
+            loc = Vector((0., 0., 0.))
+            # type
+            parent["t"] = self.type
+            parent["container"] = 1
+            parent.dupli_type = "VERTS"
+            parent.hide_select = True
+            group0 = "0"
+            group1 = "1"
+            meshIndex = 2
         
+        parent["counter"] = meshIndex
         obj = createMeshObject("wall_mesh")
         obj["height"] = h
-        obj["start"] = "0"
-        obj["end"] = "1"
+        obj["start"] = group0
+        obj["end"] = group1
         obj["m"] = meshIndex
         obj.hide_select = True
         
@@ -274,7 +289,7 @@ class Wall(Item):
         
         # create verts
         for i in range(len(v)):
-            v[i] = bm.verts.new(v[i])
+            v[i] = bm.verts.new(loc+Vector(v[i]))
         
         # create faces
         # bottom face
@@ -293,18 +308,18 @@ class Wall(Item):
         # create vertex groups for each vertical wall edge
         if atRight:
             # for the wall origin
-            assignGroupToVerts(obj, layer, "l0", v[0], v[4])
-            assignGroupToVerts(obj, layer, "r0", v[1], v[5])
+            assignGroupToVerts(obj, layer, "l"+group0, v[0], v[4])
+            assignGroupToVerts(obj, layer, "r"+group0, v[1], v[5])
             # for the wall end
-            assignGroupToVerts(obj, layer, "l1", v[3], v[7])
-            assignGroupToVerts(obj, layer, "r1", v[2], v[6])
+            assignGroupToVerts(obj, layer, "l"+group1, v[3], v[7])
+            assignGroupToVerts(obj, layer, "r"+group1, v[2], v[6])
         else:
             # for the wall origin
-            assignGroupToVerts(obj, layer, "l0", v[3], v[7])
-            assignGroupToVerts(obj, layer, "r0", v[0], v[4])
+            assignGroupToVerts(obj, layer, "l"+group0, v[3], v[7])
+            assignGroupToVerts(obj, layer, "r"+group0, v[0], v[4])
             # for the wall end
-            assignGroupToVerts(obj, layer, "l1", v[2], v[6])
-            assignGroupToVerts(obj, layer, "r1", v[1], v[5])
+            assignGroupToVerts(obj, layer, "l"+group1, v[2], v[6])
+            assignGroupToVerts(obj, layer, "r"+group1, v[1], v[5])
         
         bm.to_mesh(obj.data)
         bm.free()
@@ -318,20 +333,20 @@ class Wall(Item):
         # m means mesh index
         # al (for an attached wall only) informs if the wall is attached to the left (1) or to the right (0)
         if atRight:
-            l0 = self.createCornerEmptyObject("l0", (0., 0., 0.), False)
-            r0 = self.createCornerEmptyObject("r0", (0., -w, 0.) if alongX else (w, 0., 0.), True)
-            l1 = self.createCornerEmptyObject("l1", (l, 0., 0.) if alongX else (0., l, 0.), False)
-            r1 = self.createCornerEmptyObject("r1", (l, -w, 0.) if alongX else (w, l, 0.), True)
+            l0 = self.createCornerEmptyObject("l"+group0, loc, False)
+            r0 = self.createCornerEmptyObject("r"+group0, loc + Vector((0., -w, 0.) if alongX else (w, 0., 0.)), True)
+            l1 = self.createCornerEmptyObject("l"+group1, loc + Vector((l, 0., 0.) if alongX else (0., l, 0.)), False)
+            r1 = self.createCornerEmptyObject("r"+group1, loc + Vector((l, -w, 0.) if alongX else (w, l, 0.)), True)
         else:
-            l0 = self.createCornerEmptyObject("l0", (0., w, 0.) if alongX else (-w, 0., 0.), True)
-            r0 = self.createCornerEmptyObject("r0", (0., 0., 0.), False)
-            l1 = self.createCornerEmptyObject("l1", (l, w, 0.) if alongX else (-w, l, 0.), True)
-            r1 = self.createCornerEmptyObject("r1", (l, 0., 0.) if alongX else (0., l, 0.), False)
+            l0 = self.createCornerEmptyObject("l"+group0, loc + Vector((0., w, 0.) if alongX else (-w, 0., 0.)), True)
+            r0 = self.createCornerEmptyObject("r"+group0, loc, False)
+            l1 = self.createCornerEmptyObject("l"+group1, loc + Vector((l, w, 0.) if alongX else (-w, l, 0.)), True)
+            r1 = self.createCornerEmptyObject("r"+group1, loc + Vector((l, 0., 0.) if alongX else (0., l, 0.)), False)
         
-        setCustomAttributes(l0, l=1, e=0, g="0", w=w, n="1", m=meshIndex)
-        setCustomAttributes(r0, l=0, e=0, g="0", w=w, n="1", m=meshIndex)
-        setCustomAttributes(l1, l=1, e=1, g="1", w=w, p="0", m=meshIndex)
-        setCustomAttributes(r1, l=0, e=1, g="1", w=w, p="0", m=meshIndex)
+        setCustomAttributes(l0, l=1, e=0, g=group0, w=w, n=group1, m=meshIndex)
+        setCustomAttributes(r0, l=0, e=0, g=group0, w=w, n=group1, m=meshIndex)
+        setCustomAttributes(l1, l=1, e=1, g=group1, w=w, p=group0, m=meshIndex)
+        setCustomAttributes(r1, l=0, e=1, g=group1, w=w, p=group0, m=meshIndex)
         
         # without scene.update() parenting and hook modifiers will not work correctly
         context.scene.update()
@@ -344,10 +359,10 @@ class Wall(Item):
         context.scene.update()
         
         # add hook modifiers
-        addHookModifier(obj, "l0", l0, "l0")
-        addHookModifier(obj, "r0", r0, "r0")
-        addHookModifier(obj, "l1", l1, "l1")
-        addHookModifier(obj, "r1", r1, "r1")
+        addHookModifier(obj, "l"+group0, l0, "l"+group0)
+        addHookModifier(obj, "r"+group0, r0, "r"+group0)
+        addHookModifier(obj, "l"+group1, l1, "l"+group1)
+        addHookModifier(obj, "r"+group1, r1, "r"+group1)
         
         # add drivers
         if atRight:
@@ -589,7 +604,7 @@ class Wall(Item):
         assignGroupToVerts(obj, layer, "l"+group1, *((verts[3], verts[7]) if attachLeft else (verts[2], verts[6])) )
         assignGroupToVerts(obj, layer, "r"+group1, *((verts[2], verts[6]) if attachLeft else (verts[3], verts[7])) )
         
-        parent["counter"] = counter+2
+        parent["counter"] = meshIndex
 
         bm.to_mesh(obj.data)
         bm.free()

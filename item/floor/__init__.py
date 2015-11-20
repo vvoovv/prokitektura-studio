@@ -88,8 +88,9 @@ class Floor:
         context = self.context
         
         obj = createMeshObject("Floor", self.getLocation(empty))
-        obj.hide_select = True
+        #obj.hide_select = True
         context.window_manager.prk.floorName = obj.name
+        obj["t"] = "floor"
         obj["counter"] = 0
         group = "0"
         bm = getBmesh(obj)
@@ -122,7 +123,7 @@ class Floor:
         # check if we need to create in-between verts for the floor,
         # i.e. empty and prevEmpty aren't adjacent
         inbetweens = []
-        if empty.parent == prevEmpty.parent:
+        if empty.parent == prevEmpty.parent and empty["m"] == prevEmpty["m"]:
             wall = getWallFromEmpty(context, self.op, empty)
             if not (wall.getNext(empty) == prevEmpty or wall.getPrevious(empty) == prevEmpty):
                 # find Blender empty objects for <wall>, located between empty and prevEmpty
