@@ -142,6 +142,8 @@ class ExportB4wHtml(bpy.types.Operator):
     def invoke(self, context, event):
         
         def processHierarchy(o, dupliObjects, dupliObject):
+            if o.hide and o.type=="MESH":
+                o.b4w_do_not_export = True
             # dupliObject is the top dupli object in the current hierarchy
             # dupliObject doesn't have any dupli object as an ancestor
             if not dupliObject and o.dupli_type != "NONE" and not "container" in o:
