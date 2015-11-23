@@ -17,22 +17,18 @@ def strf(value):
 
 
 def appendFromFile(context, filepath):
-    # deselect everything, so we can identify the newly appended objects
-    bpy.ops.object.select_all(action="DESELECT")
-    files = []
     with bpy.data.libraries.load(filepath) as (data_from, data_to):
-        for name in data_from.objects:
-            files.append({'name': name})
-    
-    bpy.ops.wm.append(directory=filepath+"/Object/", files=files)
-    # finding the parent object
-    for obj in context.selected_objects:
-        if not obj.parent:
-            break
+        data_to.objects = data_from.objects
+    # append all objects and find their parent
+    parent = None
+    for obj in data_to.objects:
+        if not parent and not obj.parent:
+            parent = obj
+        bpy.context.scene.objects.link(obj)
     # perform cleanup
     bpy.ops.object.select_all(action="DESELECT")
     # return the parent object
-    return obj
+    return parent
 
 
 def getLevelHeight(context):
