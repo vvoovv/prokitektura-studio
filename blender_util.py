@@ -44,6 +44,11 @@ def addHookModifier(obj, name, hookObj, vertexGroup):
     m = obj.modifiers.new(name=name, type='HOOK')
     m.vertex_group = vertexGroup
     m.object = hookObj
+    # starting from 2.76 we have to execute the following lines to get the correct offset of vertices
+    bpy.context.scene.objects.active = obj
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.object.hook_reset(modifier=name)
+    bpy.ops.object.mode_set(mode="OBJECT")
     return m
 
 
