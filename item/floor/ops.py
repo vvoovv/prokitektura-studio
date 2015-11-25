@@ -17,6 +17,7 @@ class FloorMake(bpy.types.Operator):
         floor = Floor(context, self)
         floor.make(empty)
         
+        context.scene.objects.active = empty
         return {'FINISHED'}
     
 

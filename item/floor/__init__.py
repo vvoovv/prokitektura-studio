@@ -1,5 +1,5 @@
 import bpy, bmesh
-from blender_util import createMeshObject, getBmesh, assignGroupToVerts, addHookModifier
+from blender_util import createMeshObject, getBmesh, assignGroupToVerts, addHookModifier, parent_set
 from item.wall import getWallFromEmpty
 from base import zero
 
@@ -25,37 +25,35 @@ class Floor:
     
     def make(self, empty):
         context = self.context
+        parent = empty.parent
+        
         wall = getWallFromEmpty(context, self.op, empty)
         empty = wall.getCornerEmpty(empty)
         left = empty["l"]
         closed = wall.isClosed()
         origin = empty if closed else wall.getStart(left)
 
-        obj = createMeshObject("Floor", self.getLocation(origin))
+        obj = createMeshObject("Floor")
         obj.hide_select = True
         # type
         obj["t"] = Floor.type
-        # without scene.update() obj.matrix_world.inverted() won't give the correct result 
-        context.scene.update()
-        objMatrixInverted = obj.matrix_world.inverted()
         
         bm = getBmesh(obj)
         # create a deform layer to store vertex groups
         layer = bm.verts.layers.deform.new()
         
-        vert = bm.verts.new((0., 0., 0.))
-        vert0 = vert
+        empty = origin
+        vert = bm.verts.new(self.getLocation(empty))
         vertIndex = 0
         assignGroupToVerts(obj, layer, str(vertIndex), vert)
         
-        empty = origin
         while True:
             empty = wall.getNext(empty)
             if empty == origin or not empty:
                 break
             vertIndex += 1
             _vert = vert
-            vert = bm.verts.new(objMatrixInverted * self.getLocation(empty))
+            vert = bm.verts.new(self.getLocation(empty))
             assignGroupToVerts(obj, layer, str(vertIndex), vert)
         
         # the closing edge
@@ -69,6 +67,10 @@ class Floor:
         bm.free()
         
         # without scene.update() hook modifiers will not work correctly
+        context.scene.update()
+        # perform parenting
+        parent_set(obj, parent)
+        # one more update
         context.scene.update()
         
         # add hook modifiers
@@ -84,9 +86,10 @@ class Floor:
     
     def create(self, empty):
         context = self.context
+        parent = empty.parent
         
-        obj = createMeshObject("Floor", self.getLocation(empty))
-        #obj.hide_select = True
+        obj = createMeshObject("Floor")
+        obj.hide_select = True
         context.window_manager.prk.floorName = obj.name
         obj["t"] = "floor"
         obj["counter"] = 0
@@ -94,7 +97,7 @@ class Floor:
         bm = getBmesh(obj)
         # create a deform layer to store vertex groups
         layer = bm.verts.layers.deform.new()
-        vert = bm.verts.new((0., 0., 0.))
+        vert = bm.verts.new(self.getLocation(empty))
         
         assignGroupToVerts(obj, layer, group, vert)
         bm.to_mesh(obj.data)
@@ -102,6 +105,11 @@ class Floor:
         
         # without scene.update() hook modifiers will not work correctly
         context.scene.update()
+        # perform parenting
+        parent_set(obj, parent)
+        # one more update
+        context.scene.update()
+        
         addHookModifier(obj, group, empty, group)
     
     def extend(self, empty):
@@ -155,7 +163,7 @@ class Floor:
                 for e in empties:
                     counter +=1
                     group = str(counter)
-                    vert = bm.verts.new(obj.matrix_world.inverted() * self.getLocation(e))
+                    vert = bm.verts.new(self.getLocation(e))
                     assignGroupToVerts(obj, bm.verts.layers.deform[0], group, vert)
                     _vert = vert
                     inbetweens.append((e, group))
@@ -163,7 +171,7 @@ class Floor:
         counter += 1
         obj["counter"] = counter
         group = str(counter)
-        vert = bm.verts.new(obj.matrix_world.inverted() * self.getLocation(empty))
+        vert = bm.verts.new(self.getLocation(empty))
         assignGroupToVerts(obj, bm.verts.layers.deform[0], group, vert)
         
         bm.to_mesh(obj.data)
@@ -190,4 +198,4 @@ class Floor:
         self.context.window_manager.prk.floorName = ""
         
     def getLocation(self, empty):
-        return empty.parent.matrix_world * empty.matrix_parent_inverse * empty.location
+        return empty.matrix_parent_inverse * empty.location

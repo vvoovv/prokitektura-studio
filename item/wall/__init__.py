@@ -204,7 +204,7 @@ class Wall(Item):
         self.parent = o.parent
         # get mesh object
         for obj in o.parent.children:
-            if obj.type == "MESH" and obj["m"] == meshIndex:
+            if "t" in obj and obj["t"] == "wall_part" and obj["m"] == meshIndex:
                 self.mesh = obj
                 break
     
@@ -246,7 +246,7 @@ class Wall(Item):
             meshIndex = counter+2
         else:
             # parent one vert mesh
-            parent = createOneVertObject("Wall", loc)
+            parent = createOneVertObject("3D Plan", loc)
             loc = Vector((0., 0., 0.))
             # type
             parent["t"] = self.type
@@ -258,7 +258,8 @@ class Wall(Item):
             meshIndex = 2
         
         parent["counter"] = meshIndex
-        obj = createMeshObject("wall_mesh")
+        obj = createMeshObject("wall_part")
+        obj["t"] = "wall_part"
         obj["height"] = h
         obj["start"] = group0
         obj["end"] = group1
@@ -555,7 +556,8 @@ class Wall(Item):
         group0 = str(counter)
         group1 = str(counter+1)
         
-        obj = createMeshObject("wall_mesh")
+        obj = createMeshObject("wall_part")
+        obj["t"] = "wall_part"
         meshIndex = counter+2
         obj["m"] = meshIndex
         obj["height"] = h
