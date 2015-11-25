@@ -67,6 +67,7 @@ def floor_continue(context, op, considerFinish):
     else:
         floor = Floor(context, op)
         floor.extend(empty)
+        context.scene.objects.active = empty
         if not op._handle:
             # start drawing
             op._handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback_floor, (op, context), "WINDOW", "POST_VIEW")

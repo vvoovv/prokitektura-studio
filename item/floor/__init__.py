@@ -56,11 +56,9 @@ class Floor:
             vertIndex += 1
             _vert = vert
             vert = bm.verts.new(objMatrixInverted * self.getLocation(empty))
-            bm.edges.new((_vert, vert))
             assignGroupToVerts(obj, layer, str(vertIndex), vert)
         
         # the closing edge
-        bm.edges.new((vert, vert0))
         # the face
         face = bm.faces.new(bm.verts)
         
@@ -159,7 +157,6 @@ class Floor:
                     group = str(counter)
                     vert = bm.verts.new(obj.matrix_world.inverted() * self.getLocation(e))
                     assignGroupToVerts(obj, bm.verts.layers.deform[0], group, vert)
-                    bm.edges.new((_vert, vert))
                     _vert = vert
                     inbetweens.append((e, group))
                 
@@ -169,7 +166,6 @@ class Floor:
         vert = bm.verts.new(obj.matrix_world.inverted() * self.getLocation(empty))
         assignGroupToVerts(obj, bm.verts.layers.deform[0], group, vert)
         
-        bm.edges.new((_vert, vert))
         bm.to_mesh(obj.data)
         bm.free()
         
@@ -185,7 +181,6 @@ class Floor:
         obj = getFloorObject(self.context)
         bm = getBmesh(obj)
         bm.verts.ensure_lookup_table()
-        bm.edges.new((bm.verts[-1], bm.verts[0]))
         face = bm.faces.new(bm.verts)
         bm.to_mesh(obj.data)
         if obj.data.polygons[0].normal[2]<-zero:
