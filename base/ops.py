@@ -15,7 +15,7 @@ class Move(bpy.types.Operator):
         if len(context.selected_objects) == 1:
             o = context.selected_objects[0]
             item = getItem(context, self, o)
-            if not item:
+            if not item or item.moveFreely:
                 # perform standard Blender translation
                 bpy.ops.transform.translate("INVOKE_DEFAULT")
                 return {'FINISHED'}

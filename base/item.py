@@ -3,6 +3,8 @@
 class Item:
     
     def __init__(self, context, op):
+        # the item has some constraints for translation by default
+        self.moveFreely = False
         self.context = context
         self.op = op
     

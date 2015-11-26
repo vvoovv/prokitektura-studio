@@ -200,13 +200,17 @@ class Wall(Item):
     emptyPropsSegment = {'empty_draw_type':'SPHERE', 'empty_draw_size':0.05}
     
     def init(self, o):
-        meshIndex = o["m"]
-        self.parent = o.parent
-        # get mesh object
-        for obj in o.parent.children:
-            if "t" in obj and obj["t"] == "wall_part" and obj["m"] == meshIndex:
-                self.mesh = obj
-                break
+        if o["t"] == self.type:
+            # <o> is the parent object for all wall parts, so it can be moved freely
+            self.moveFreely = True
+        else:
+            meshIndex = o["m"]
+            self.parent = o.parent
+            # get mesh object
+            for obj in o.parent.children:
+                if "t" in obj and obj["t"] == "wall_part" and obj["m"] == meshIndex:
+                    self.mesh = obj
+                    break
     
     def create(self, locEnd=None, parent=None):
         from mathutils import Vector
