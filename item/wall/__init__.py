@@ -250,7 +250,7 @@ class Wall(Item):
             meshIndex = counter+2
         else:
             # parent one vert mesh
-            parent = createOneVertObject("3D Plan", loc)
+            parent = createOneVertObject("Model", loc)
             loc = Vector((0., 0., 0.))
             # type
             parent["t"] = self.type
