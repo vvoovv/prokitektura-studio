@@ -1,6 +1,7 @@
 import bpy, bgl
 
 from . import Floor, getFloorObject
+from item.wall import getWallFromEmpty
 
 
 class FloorMake(bpy.types.Operator):
@@ -10,14 +11,15 @@ class FloorMake(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
     
     def execute(self, context):
-        empty = context.scene.objects.active
-        if not (empty and empty.type=="EMPTY" and empty.parent):
+        o = context.scene.objects.active
+        wall = getWallFromEmpty(context, self, o)
+        if not wall:
             self.report({"ERROR"}, "To begin a floor, select an EMPTY object belonging to the wall")
             return {'CANCELLED'}
         floor = Floor(context, self)
-        floor.make(empty)
+        floor.make(wall, o)
         
-        context.scene.objects.active = empty
+        context.scene.objects.active = o
         return {'FINISHED'}
     
 
@@ -36,25 +38,24 @@ def draw_callback_floor(op, context):
     bgl.glEnd()
     
 
-
 def floor_begin(context, op):
-    empty = context.object
-    if not (empty and empty.type=="EMPTY" and empty.parent):
+    o = context.object
+    if not getWallFromEmpty(context, op, o):
         op.report({'ERROR'}, "To begin a floor, select an EMPTY object belonging to the wall")
         return {'CANCELLED'}
-    Floor(context, op, empty)
+    Floor(context, op, o)
     
 
 def floor_continue(context, op, considerFinish):
-    empty = context.object
-    if not (empty and empty.type=="EMPTY" and empty.parent):
+    o = context.object
+    if not getWallFromEmpty(context, op, o):
         op.report({'ERROR'}, "To continue the floor, select an EMPTY object belonging to the wall")
         return {'CANCELLED'}
     # get Blender floor object
     floorObj = getFloorObject(context)
     # check we if empty has been already used for the floor
     for m in floorObj.modifiers:
-        if m.type == "HOOK" and m.object == empty:
+        if m.type == "HOOK" and m.object == o:
             used = True
             break
     else:
@@ -67,8 +68,8 @@ def floor_continue(context, op, considerFinish):
             floor_finish(context, op)
     else:
         floor = Floor(context, op)
-        floor.extend(empty)
-        context.scene.objects.active = empty
+        floor.extend(o)
+        context.scene.objects.active = o
         if not op._handle:
             # start drawing
             op._handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback_floor, (op, context), "WINDOW", "POST_VIEW")

@@ -11,6 +11,18 @@ def getFloorObject(context):
     return bpy.data.objects[prk.floorName] if prk.floorName else None
 
 
+class WallSegment:
+    
+    def __init__(self):
+        pass
+    
+    def addAttached(self, o):
+        """
+        Add attached segment
+        """
+        pass
+
+
 class Floor:
     
     type = "floor"
@@ -23,11 +35,10 @@ class Floor:
         if empty:
             self.create(empty)
     
-    def make(self, empty):
+    def make(self, wall, empty):
         context = self.context
         parent = empty.parent
         
-        wall = getWallFromEmpty(context, self.op, empty)
         empty = wall.getCornerEmpty(empty)
         left = empty["l"]
         closed = wall.isClosed()
@@ -83,6 +94,9 @@ class Floor:
             vertIndex += 1
             if empty == origin or not empty:
                 break
+    
+    def make2(self, empty):
+        pass
     
     def create(self, empty):
         context = self.context
