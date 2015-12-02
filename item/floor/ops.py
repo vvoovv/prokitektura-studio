@@ -17,7 +17,7 @@ class FloorMake(bpy.types.Operator):
             self.report({"ERROR"}, "To begin a floor, select an EMPTY object belonging to the wall")
             return {'CANCELLED'}
         floor = Floor(context, self)
-        floor.make(wall, o)
+        floor.make(o, wall)
         
         context.scene.objects.active = o
         return {'FINISHED'}

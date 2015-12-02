@@ -844,10 +844,13 @@ class Wall(Item):
         Get reference EMPTYs for the wall segment to which <o> is attached.
         
         Returns:
-            A tuple with corner EMPTYs or None it <o> isn't attache to a wall segment.
+            A tuple with corner EMPTYs or None it <o> isn't attached to a wall segment.
         """
         if not self.isAttached(o):
             return None
+        if o.hide:
+            # otherwise we'll get incorrect results for that case
+            o = self.getNeighbor(o)
         variables = o.animation_data.drivers[0].driver.variables
         return (variables[0].targets[0].id, variables[1].targets[0].id)
     

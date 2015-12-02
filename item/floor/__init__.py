@@ -11,16 +11,163 @@ def getFloorObject(context):
     return bpy.data.objects[prk.floorName] if prk.floorName else None
 
 
-class WallSegment:
+class WalkAlongWalls:
     
-    def __init__(self):
-        pass
+    def __init__(self, parent):
+        self.parent = parent
+        # key: (l|r)group; value: list of entries for all walls attached to the wall with the given key
+        self.attached = {}
+        # key: group for an attached wall; value: entry from self.attached
+        self._attached = {}
+        self.wallParts = {}
+        self.init()
     
-    def addAttached(self, o):
+    def init(self):
+        # iterate through all attached EMPTYs to build a registry of attached wall parts
+        for o in self.parent.children:
+            if not (o.type=="EMPTY" and "t" in o and o["t"]=="wa") or o["g"] in self._attached:
+                continue
+            o1, o2 = self.getWallPart(o).getReferencesForAttached(o)
+            # relative position of <o> on the edge defined by <o1> and <o2>
+            pos = (o.location - o1.location).length/(o2.location - o1.location).length
+            key = self.getKey(o2)
+            if not key in self.attached:
+                self.attached[key] = []
+            attached = self.attached[key]
+            numAttached = len(attached)
+            # insert new entry to <attached>
+            # all entries in <attached> are sorted by <pos>
+            # implementing bisect.insort_right(..)
+            lo = 0
+            hi = numAttached
+            while lo < hi:
+                mid = (lo+hi)//2
+                if pos < attached[mid][1]:
+                    hi = mid
+                else:
+                    lo = mid+1
+            # insert a list: [<o>, <pos>, <previous entry>, <next entry>]  
+            entry = [o, pos, attached[lo-1] if lo else None, attached[lo] if lo<numAttached else None]
+            # update the neighboring entries of <attached> for the <entry> to be inserted
+            # the previous entry if available:
+            if lo:
+                attached[lo-1][3] = entry
+            # the next entry if available:
+            if lo<numAttached:
+                attached[lo][2] = entry
+            # finally, insert the new <entry> to self.attached
+            attached.insert(lo, entry)
+            # and to self._attached
+            self._attached[o["g"]] = entry
+    
+    def walk(self, o, wall):
+        # self.direction is None means we should walk along the attached wall starting
+        # from its attached EMPTY
+        self.direction = None
+        empties = [o]
+        e = o
+        while True:
+            e = self.getNextEmpty(e, wall)
+            if not e or e == o:
+                break
+            wall = self.getWallPart(e)
+            empties.append(e)
+        return empties
+    
+    def getNextEmpty(self, o, wall):
+        if self.direction is not None and wall.isAttached(o):
+            return self.getNextForAttached(o, wall) \
+                if (o["e"] and ((o["l"] and o["al"]) or (not o["l"] and not o["al"]))) or \
+                    (not o["e"] and ((not o["l"] and o["al"]) or (o["l"] and not o["al"]))) \
+                else self.getPreviousForAttached(o, wall)
+        else:
+            if self.direction is None:
+                self.setDirection(o, wall)
+            
+            if self.direction:
+                o = wall.getNext(o)
+                if not o:
+                    return None
+            
+            key = self.getKey(o)
+            # check if the wall segment has attached walls
+            if key in self.attached:
+                # find an attached wall, both ends of which are attached
+                for attached in self.attached[key] if self.direction else reversed(self.attached[key]):
+                    a = attached[0]
+                    # attached wall:
+                    aWall = self.getWallPart(a)
+                    # Check if the opposite end of attached wall <_wall> is also attached
+                    if (a["e"] and aWall.isAttached(aWall.getStart(a["l"]))) or \
+                      (not a["e"] and aWall.isAttached(aWall.getEnd(a["l"]))):
+                        # check if we need to take the neighbor of <a>
+                        if (self.direction and self.condition1(a)) or (not self.direction and self.condition0(a)):
+                                a = aWall.getNeighbor(a)
+                        self.direction = None
+                        return a
+            
+            return o if self.direction else wall.getPrevious(o)
+    
+    def getNextForAttached(self, o, wall):
+        o2 = wall.getReferencesForAttached(o)[1]
+        # get entry in self._attached related to <o>
+        a = self._attached[o["g"]]
+        if a[3]:
+            a = a[3][0]
+            # check if we need to take the neighbor of <a>
+            if self.condition1(a):
+                a = self.getWallPart(a).getNeighbor(a)
+            self.direction = None
+        else:
+            a = o2
+            self.direction = True
+        return a
+    
+    def getPreviousForAttached(self, o, wall):
+        o1 = wall.getReferencesForAttached(o)[0]
+        # get entry in self._attached related to <o>
+        a = self._attached[o["g"]]
+        if a[2]:
+            a = a[2][0]
+            # check if we need to take the neighbor of <a>
+            if self.condition0(a):
+                a = self.getWallPart(a).getNeighbor(a)
+            self.direction = None
+        else :
+            a = o1
+            self.direction = False
+        return a
+
+    def setDirection(self, o, wall):
         """
-        Add attached segment
+        Set direction of the walk along walls
+        Returns:
+        True if the direction is from start to end; False in the opposite case
         """
-        pass
+        self.direction = False if o == wall.getEnd(o["l"]) else True
+    
+    def getKey(self, o):
+        return ("l" if o["l"] else "r") + o["g"]
+    
+    def getWallPart(self, o):
+        parts = self.wallParts
+        if not o["m"] in parts:
+            parts[o["m"]] = getWallFromEmpty(None, None, o)
+        return parts[o["m"]]
+    
+    def condition1(self, a):
+        """
+        A helper function used in the condition for the direct walk from the start to the end of a wall part
+        """
+        return (a["l"] and ((not a["al"] and not a["e"]) or (a["al"] and a["e"]))) or \
+            (not a["l"] and ((not a["al"] and a["e"]) or (a["al"] and not a["e"])))
+    
+    def condition0(self, a):
+        """
+        A helper function used in the condition for the reversed walk from the end to the start of a wall part
+        """
+        return (a["l"] and ((not a["al"] and a["e"]) or (a["al"] and not a["e"]))) or \
+            (not a["l"] and ((not a["al"] and not a["e"]) or (a["al"] and a["e"])))
 
 
 class Floor:
@@ -34,16 +181,16 @@ class Floor:
         self.op = op
         if empty:
             self.create(empty)
-    
-    def make(self, wall, empty):
-        context = self.context
-        parent = empty.parent
-        
-        empty = wall.getCornerEmpty(empty)
-        left = empty["l"]
-        closed = wall.isClosed()
-        origin = empty if closed else wall.getStart(left)
 
+    def make(self, o, wall):
+        o = wall.getCornerEmpty(o)
+        # go through all EMPTYs and create a floor from them
+        self.makeFromEmpties( WalkAlongWalls(o.parent).walk(o, wall) )
+    
+    def makeFromEmpties(self, empties):
+        context = self.context
+        parent = empties[0].parent
+        
         obj = createMeshObject("Floor")
         obj.hide_select = True
         # type
@@ -53,21 +200,12 @@ class Floor:
         # create a deform layer to store vertex groups
         layer = bm.verts.layers.deform.new()
         
-        empty = origin
-        vert = bm.verts.new(self.getLocation(empty))
         vertIndex = 0
-        assignGroupToVerts(obj, layer, str(vertIndex), vert)
-        
-        while True:
-            empty = wall.getNext(empty)
-            if empty == origin or not empty:
-                break
-            vertIndex += 1
-            _vert = vert
-            vert = bm.verts.new(self.getLocation(empty))
+        for e in empties:
+            vert = bm.verts.new(self.getLocation(e))
             assignGroupToVerts(obj, layer, str(vertIndex), vert)
+            vertIndex += 1
         
-        # the closing edge
         # the face
         face = bm.faces.new(bm.verts)
         
@@ -86,17 +224,10 @@ class Floor:
         
         # add hook modifiers
         vertIndex = 0
-        empty = origin
-        while True:
+        for e in empties:
             group = str(vertIndex)
-            addHookModifier(obj, group, empty, group)
-            empty = wall.getNext(empty)
+            addHookModifier(obj, group, e, group)
             vertIndex += 1
-            if empty == origin or not empty:
-                break
-    
-    def make2(self, empty):
-        pass
     
     def create(self, empty):
         context = self.context
