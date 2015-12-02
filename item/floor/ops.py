@@ -6,8 +6,8 @@ from item.wall import getWallFromEmpty
 
 class FloorMake(bpy.types.Operator):
     bl_idname = "prk.floor_make"
-    bl_label = "Make a floor for the wall"
-    bl_description = "Makes a floor for the wall defined by the selected point"
+    bl_label = "Make a floor"
+    bl_description = "Make a floor surrounded by walls"
     bl_options = {"REGISTER", "UNDO"}
     
     def execute(self, context):
