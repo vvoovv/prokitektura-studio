@@ -1,8 +1,5 @@
-from .wall.ops import *
-from .window.ops import *
-from .door.ops import *
-from .floor.ops import *
-
+import bpy
+from .geojson import GeoJson
 
 def register():
     bpy.utils.register_module(__name__)
