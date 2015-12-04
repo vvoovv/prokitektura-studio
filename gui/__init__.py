@@ -12,7 +12,7 @@ class PanelMain(bpy.types.Panel):
     bl_label = "Main"
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
-    bl_category = "Prokitektura"
+    bl_category = "Main:Prokitektura"
     
     def draw(self, context):
         prk = context.window_manager.prk
@@ -46,7 +46,7 @@ class PanelItem(bpy.types.Panel):
     bl_label = "Selected"
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
-    bl_category = "Prokitektura"
+    bl_category = "Selected:Prokitektura"
     
     def draw(self, context):
         o = context.scene.objects.active
