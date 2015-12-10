@@ -25,3 +25,28 @@ class Move(bpy.types.Operator):
             # perform standard Blender translation
             bpy.ops.transform.translate("INVOKE_DEFAULT")
             return {'FINISHED'}
+
+
+class CustomizeGui(bpy.types.Operator):
+    bl_idname = "prk.customize"
+    bl_label = "Customize Blender GUI"
+    bl_description = "Customize default Blender GUI: keep only GUI for Prokitektura"
+    bl_options = {"REGISTER", "UNDO"}
+    
+    def invoke(self, context, event):
+        un = bpy.utils.unregister_class
+        # Tools panel
+        un(bpy.types.VIEW3D_PT_tools_transform)
+        un(bpy.types.VIEW3D_PT_tools_object)
+        un(bpy.types.VIEW3D_PT_tools_history)
+        # Create panel
+        un(bpy.types.VIEW3D_PT_tools_add_object)
+        # Relations panel
+        un(bpy.types.VIEW3D_PT_tools_relations)
+        # Animation panel
+        un(bpy.types.VIEW3D_PT_tools_animation)
+        # Physics panel
+        un(bpy.types.VIEW3D_PT_tools_rigid_body)
+        # Grease Pencil
+        un(bpy.types.VIEW3D_PT_tools_grease_pencil_draw)
+        return {'FINISHED'}
