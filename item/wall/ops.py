@@ -101,7 +101,7 @@ class WallEditExtend(bpy.types.Operator):
             self.attached = False
         else:
             # try to get a wall instance assuming <empty> is a segment EMPTY
-            if "t" in e and e["t"]=="ws":
+            if e and "t" in e and e["t"]=="ws":
                 wall = getWallFromEmpty(context, self, e, False)
                 if wall:
                     # wall.startAttachedWall(empty, locEnd) returns segment EMPTY
