@@ -7,7 +7,7 @@ from blender_util import *
 def getWallFromEmpty(context, op, empty, end=False):
     # The end==True means empty must be at either open end of the wall
     # check validity of empty
-    if not (empty and empty.type == "EMPTY" and (not end or "e" in empty)):
+    if not (empty and empty.type == "EMPTY" and (not end or ("e" in empty and not "al" in empty))):
         return None
     wall = Wall(context, op)
     wall.init(empty)
