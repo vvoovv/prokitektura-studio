@@ -809,7 +809,7 @@ class Wall(Item):
         o = _o
         meshIndex = o["m"]
         neighbor = None
-        for obj in self.parent.children:
+        for obj in o.parent.children:
             if obj.type == "EMPTY" and "t" in obj and obj["t"]=="ws" and obj["m"]==meshIndex:
                 hide_select(obj, False if obj["l"]==left else True)
                 # find the neighbor of <o> if <o> is a segment EMPTY 
@@ -1258,6 +1258,11 @@ class Wall(Item):
     def insert(self, o, obj, constructor):
         o2 = self.getCornerEmpty(o)
         o1 = self.getPrevious(o2)
+        if self.external:
+            # override self.external
+            self.external = False
+        else:
+            self.inheritLevelFrom = o
         self.parent_set(obj)
         # create an item instance with <constructor> and init the instance
         constructor(self.context, self.op).create(obj, self, o1, o2)
