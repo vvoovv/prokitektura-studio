@@ -23,6 +23,9 @@ class WallEditAdd(bpy.types.Operator):
     )
     
     def invoke(self, context, event):
+        if not context.scene.prk.levels:
+            self.report({'ERROR'}, "To create a wall add at least one level")
+            return {'CANCELLED'}
         locEnd = cursor_2d_to_location_3d(context, event)
         wall = Wall(context, self)
         o = context.object
@@ -111,8 +114,8 @@ class WallEditExtend(bpy.types.Operator):
                     # set mode of operation
                     self.attached = True
             if not wall:
-                self.report({"ERROR"}, "To extend the wall, select an EMPTY object at either free end of the wall")
-                return {'FINISHED'}
+                self.report({'ERROR'}, "To extend the wall, select an EMPTY object at either free end of the wall")
+                return {'CANCELLED'}
         self.state = self.set_location
         self.lastOperator = getLastOperator(context)
         # The order how self.mover.start() and context.window_manager.modal_handler_add(self)
@@ -162,8 +165,8 @@ class WallExtend(bpy.types.Operator):
         empty = context.scene.objects.active
         wall = getWallFromEmpty(context, self, empty, True)
         if not wall:
-            self.report({"ERROR"}, "To extend the wall, select an EMPTY object at either free end of the wall")
-            return {'FINISHED'}
+            self.report({'ERROR'}, "To extend the wall, select an EMPTY object at either free end of the wall")
+            return {'CANCELLED'}
         wall.extend(empty)
         return {'FINISHED'}
 
@@ -183,7 +186,7 @@ class WallComplete(bpy.types.Operator):
         # are NOT perpedndicular, otherwise it won't be possible to attach <wall>
         # perpendicular to <targetWall>
         if abs( (e2.location-e1.location).dot(o.location-wall.getPrevious(o).location) ) < zero2:
-            self.report({"ERROR"}, "Unable to attach the wall perpendicular to the target one!")
+            self.report({'ERROR'}, "Unable to attach the wall perpendicular to the target one!")
         else:
             wall.completeAttachedWall(o, targetWall, target)
     
@@ -246,9 +249,9 @@ class WallComplete(bpy.types.Operator):
                     self.completeAttachedWall(wall2, o2, wall1, o1)
                 elif startAttached1 or startAttached2:
                     if o1["m"] != o2["m"]:
-                        self.report({"ERROR"}, "To attach the wall select the free end of the wall and a target wall segment!")
+                        self.report({'ERROR'}, "To attach the wall select the free end of the wall and a target wall segment!")
                     else:
-                        self.report({"ERROR"}, "Unable to attach the wall to itself!")
+                        self.report({'ERROR'}, "Unable to attach the wall to itself!")
                 else:
                     finished = False
                 if finished:
@@ -258,11 +261,11 @@ class WallComplete(bpy.types.Operator):
         o = context.scene.objects.active
         wall = getWallFromEmpty(context, self, o)
         if not wall:
-            self.report({"ERROR"}, "To complete the wall, select an EMPTY object belonging to the wall")
+            self.report({'ERROR'}, "To complete the wall, select an EMPTY object belonging to the wall")
         elif wall.isClosed():
-            self.report({"ERROR"}, "The wall has been already completed!")
+            self.report({'ERROR'}, "The wall has been already completed!")
         elif wall.isAttached(wall.getStart()):
-            self.report({"ERROR"}, "Unable to complete an attached wall!")
+            self.report({'ERROR'}, "Unable to complete an attached wall!")
         else:
             wall.complete(o["l"])
         return {'FINISHED'}
@@ -278,6 +281,7 @@ class WallFlipControls(bpy.types.Operator):
         empty = context.scene.objects.active
         wall = getWallFromEmpty(context, self, empty)
         if not wall:
-            self.report({"ERROR"}, "To flip control points for the wall, select an EMPTY object belonging to the wall")
+            self.report({'ERROR'}, "To flip control points for the wall, select an EMPTY object belonging to the wall")
+            return {'CANCELLED'}
         wall.flipControls(empty)
         return {'FINISHED'}

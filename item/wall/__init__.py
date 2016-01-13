@@ -1,5 +1,5 @@
 import bmesh
-from base import pContext, getLevelLocation, xAxis, yAxis, zAxis, zero
+from base import pContext, getLevelLocation, getLevelZ, xAxis, yAxis, zAxis, zero
 from base.item import Item
 from blender_util import *
 
@@ -156,7 +156,7 @@ def setWidth(self, value):
     context = bpy.context
     o = context.scene.objects.active
     wall = getWallFromEmpty(context, None, o)
-    if context.window_manager.prk.widthForAllSegments:
+    if context.scene.prk.widthForAllSegments:
         closed = wall.isClosed()
         if closed:
             o = wall.getCornerEmpty(o)
@@ -184,10 +184,10 @@ class GuiWall:
         layout.operator("prk.add_door")
         
         layout.operator("prk.wall_flip_controls")
-        if o["t"] == "ws" or o["t"] == "wc":
+        if o["t"] == "ws" or o["t"] == "wc" or o["t"] == "wa":
             box = layout.box()
-            box.prop(context.window_manager.prk, "widthForAllSegments")
-            box.prop(context.window_manager.prk, "wallSegmentWidth")
+            box.prop(context.scene.prk, "widthForAllSegments")
+            box.prop(context.scene.prk, "wallSegmentWidth")
 
 
 class Wall(Item):
@@ -198,29 +198,45 @@ class Wall(Item):
     
     emptyPropsCorner = {'empty_draw_type':'CUBE', 'empty_draw_size':0.02}
     emptyPropsSegment = {'empty_draw_type':'SPHERE', 'empty_draw_size':0.05}
+    emptyPropsLevel = {'empty_draw_type':'PLAIN_AXES', 'empty_draw_size':0.05}
+    
+    def __init__(self, context, op):
+        super().__init__(context, op)
+        # self.inheritLevelFrom indicates if need to inherit the level height and
+        # the level z-position from the given EMPTY or take it from GUI
+        self.inheritLevelFrom = None
     
     def init(self, o):
         if o["t"] == self.type:
             # <o> is the parent object for all wall parts, so it can be moved freely
             self.moveFreely = True
         else:
+            parent = o.parent
+            self.parent = parent.parent
             meshIndex = o["m"]
-            self.parent = o.parent
             # get mesh object
-            for obj in o.parent.children:
+            for obj in parent.children:
                 if "t" in obj and obj["t"] == "wall_part" and obj["m"] == meshIndex:
                     self.mesh = obj
                     break
+            # check if have external or internal wall part
+            self.external = True if "ex" in parent and parent["ex"] else False
     
     def create(self, locEnd=None, parent=None):
         from mathutils import Vector
+        # <parent> is actually a layer parent or the parent for external walls
+        if parent:
+            parent = parent.parent
         
         context = self.context
-        prk = context.window_manager.prk
+        prk = context.scene.prk
         op = self.op
         loc = getLevelLocation(context)
         
-        h = prk.newWallHeight
+        external = prk.newWallType == "external"
+        self.external = external
+        
+        h = self.getHeight()
         w = prk.newWallWidth
         
         # the initial wall segment is oriented along Y-axis by default
@@ -229,8 +245,9 @@ class Wall(Item):
         if locEnd:
             if parent:
                 # convert to the coordinate system of <parent>
-                locEnd = parent.matrix_world.inverted() * locEnd
-                loc = parent.matrix_world.inverted() * loc
+                matrix = parent.matrix_world.inverted()
+                locEnd = matrix * locEnd
+                loc = matrix * loc
             dx = locEnd.x-loc.x
             dy = locEnd.y-loc.y
             if abs(dx) > abs(dy):
@@ -241,7 +258,7 @@ class Wall(Item):
         else:
             l = op.length
             
-        atRight = context.window_manager.prk.wallAtRight
+        atRight = prk.wallAtRight
         
         if parent:
             counter = parent["counter"] + 1
@@ -261,10 +278,11 @@ class Wall(Item):
             group1 = "1"
             meshIndex = 2
         
+        self.parent = parent
+        
         parent["counter"] = meshIndex
         obj = createMeshObject("wall_part")
         obj["t"] = "wall_part"
-        obj["height"] = h
         obj["start"] = group0
         obj["end"] = group1
         obj["m"] = meshIndex
@@ -310,7 +328,10 @@ class Wall(Item):
         # back face
         bm.faces.new((v[3], v[7], v[6], v[2]))
         
-        # create vertex groups for each vertical wall edge
+        # assign vertex group for the top face
+        assignGroupToVerts(obj, layer, "t", v[4], v[5], v[6], v[7])
+        
+        # assign vertex groups for each vertical wall edge
         if atRight:
             # for the wall origin
             assignGroupToVerts(obj, layer, "l"+group0, v[0], v[4])
@@ -357,7 +378,7 @@ class Wall(Item):
         context.scene.update()
         
         # perform parenting
-        parent_set((obj, l0, r0, l1, r1), parent)
+        directParent = self.parent_set(obj, l0, r0, l1, r1)
         
         # without scene.update() parenting and hook modifiers will not work correctly
         # this step is probably optional here, however it's required in self.extend(..)
@@ -378,8 +399,8 @@ class Wall(Item):
             self.addEndEdgeDrivers(l1, r0, r1, True, atRight)
             
         # create Blender EMPTY objects for the initial wall segment:
-        _l = self.createSegmentEmptyObject(l0, l1, parent, False if atRight else True)
-        _r = self.createSegmentEmptyObject(r0, r1, parent, True if atRight else False)
+        _l = self.createSegmentEmptyObject(l0, l1, directParent, False if atRight else True)
+        _r = self.createSegmentEmptyObject(r0, r1, directParent, True if atRight else False)
         setCustomAttributes(_l, l=1, m=meshIndex)
         setCustomAttributes(_r, l=0, m=meshIndex)
         
@@ -435,13 +456,15 @@ class Wall(Item):
         return e1
     
     def createExtension(self, o1, p1, p2):
+        self.inheritLevelFrom = o1
+        
         o2 = self.getNeighbor(o1)
         
         context = self.context
         parent = self.parent
         mesh = self.mesh
         meshIndex = mesh["m"]
-        h = mesh["height"]
+        h = self.getHeight()
         counter = parent["counter"] + 1
         group = str(counter)
         
@@ -511,6 +534,9 @@ class Wall(Item):
         bm.faces.new((verts1[1], verts2[1], v2_2, v1_2) if condition else (v1_2, v2_2, verts2[1], verts1[1]) )
         bm.faces.new((v1_1, v2_1, verts2[0], verts1[0]) if condition else (verts1[0], verts2[0], v2_1, v1_1) )
         
+        # assign vertex group for the verices located at the top
+        assignGroupToVerts(mesh, layer, "t", v1_2, v2_2)
+        # assign vertex group for for each new vertical wall edge
         assignGroupToVerts(mesh, layer, group1, v1_1, v1_2)
         assignGroupToVerts(mesh, layer, group2, v2_1, v2_2)
         
@@ -527,7 +553,7 @@ class Wall(Item):
         context.scene.update()
         
         # perform parenting
-        parent_set((e1, e2), parent)
+        directParent = self.parent_set(e1, e2)
         
         # without scene.update() parenting and hook modifiers will not work correctly
         context.scene.update()
@@ -538,11 +564,11 @@ class Wall(Item):
         
         # create Blender EMPTY objects for the just created wall segment:
         if end:
-            s1 = self.createSegmentEmptyObject(o1, e1, self.parent, False)
-            s2 = self.createSegmentEmptyObject(o2, e2, self.parent, True)
+            s1 = self.createSegmentEmptyObject(o1, e1, directParent, False)
+            s2 = self.createSegmentEmptyObject(o2, e2, directParent, True)
         else:
-            s1 = self.createSegmentEmptyObject(e1, o1, self.parent, False)
-            s2 = self.createSegmentEmptyObject(e2, o2, self.parent, True)
+            s1 = self.createSegmentEmptyObject(e1, o1, directParent, False)
+            s2 = self.createSegmentEmptyObject(e2, o2, directParent, True)
         setCustomAttributes(s1, m=meshIndex)
         setCustomAttributes(s2, m=meshIndex)
         
@@ -551,9 +577,8 @@ class Wall(Item):
     def createAttachment(self, verts, attachLeft, freeEnd):
         context = self.context
         parent = self.parent
-        prk = context.window_manager.prk
+        prk = context.scene.prk
         w = prk.newWallWidth
-        h = prk.newWallHeight
         atRight = prk.wallAtRight
         
         counter = parent["counter"] + 1
@@ -564,7 +589,6 @@ class Wall(Item):
         obj["t"] = "wall_part"
         meshIndex = counter+2
         obj["m"] = meshIndex
-        obj["height"] = h
         obj["start"] = group0
         obj["end"] = group1
         obj.hide_select = True
@@ -602,7 +626,9 @@ class Wall(Item):
         # right
         bm.faces.new( (verts[1], verts[5], verts[4], verts[0]) if attachLeft else (verts[2], verts[6], verts[7], verts[3]) )
         
-        # create vertex groups for each vertical wall edge
+        # assign vertex group for the top face
+        assignGroupToVerts(obj, layer, "t", verts[5], verts[6], verts[7], verts[4])
+        # assign vertex groups for each vertical wall edge
         # for the wall origin
         assignGroupToVerts(obj, layer, "l"+group0, *((verts[0], verts[4]) if attachLeft else (verts[1], verts[5])) )
         assignGroupToVerts(obj, layer, "r"+group0, *((verts[1], verts[5]) if attachLeft else (verts[0], verts[4])) )
@@ -617,7 +643,7 @@ class Wall(Item):
         
         context.scene.update()
         # perform parenting
-        parent_set((obj, l0, r0, l1, r1), parent)
+        directParent = self.parent_set(obj, l0, r0, l1, r1)
         context.scene.update()
         
         # add hook modifiers
@@ -636,8 +662,8 @@ class Wall(Item):
                 self.addEndEdgeDrivers(l1, r0, r1, True, atRight)
             
         # create Blender EMPTY objects for the attached wall segment:
-        lEmpty = self.createSegmentEmptyObject(l0, l1, parent, False if atRight else True)
-        rEmpty = self.createSegmentEmptyObject(r0, r1, parent, True if atRight else False)
+        lEmpty = self.createSegmentEmptyObject(l0, l1, directParent, False if atRight else True)
+        rEmpty = self.createSegmentEmptyObject(r0, r1, directParent, True if atRight else False)
         setCustomAttributes(lEmpty, m=meshIndex)
         setCustomAttributes(rEmpty, m=meshIndex)
         
@@ -860,6 +886,22 @@ class Wall(Item):
     def getWidth(self, o):
         return self.getCornerEmpty(o)["w"]
     
+    def getHeight(self):
+        """Get height of the wall to be created"""
+        prk = self.context.scene.prk
+        if not self.external:
+            if self.inheritLevelFrom:
+                levelIndex = self.inheritLevelFrom.parent["level"]
+                for i,l in enumerate(prk.levels):
+                    if l.index == levelIndex:
+                        levelIndex = i
+                        break
+            else:
+                levelIndex = prk.levelIndex
+        return sum(prk.levelBundles[level.bundle].height for level in prk.levels) \
+            if self.external else \
+            prk.levelBundles[prk.levels[levelIndex].bundle].height
+    
     def setWidth(self, o, value):
         o = self.getCornerEmpty(o)
         o["w"] = value
@@ -894,7 +936,7 @@ class Wall(Item):
         empty.lock_location[2] = True
         # ws stands for "wall segment"
         setCustomAttributes(empty, t="ws", l=left, g=e1["g"])
-        parent_set(empty, parent)
+        parent_set(parent, empty)
         
         addSegmentDrivers(empty, e0, e1)
         
@@ -1033,6 +1075,16 @@ class Wall(Item):
         objects.active = active
         
     def startAttachedWall(self, o, locEnd):
+        context = self.context
+        prk = context.scene.prk
+        
+        if self.external:
+            if prk.newWallType == "internal":
+                # override self.external
+                self.external = False
+        else:
+            self.inheritLevelFrom = o
+        
         locEnd.z = 0.
         # convert the end location to the coordinate system of the wall
         locEnd = self.parent.matrix_world.inverted() * locEnd
@@ -1050,10 +1102,8 @@ class Wall(Item):
             o1 = self.getNeighbor(o1)
             o2 = self.getNeighbor(o2)
         
-        context = self.context
-        prk = context.window_manager.prk
         w = prk.newWallWidth
-        h = prk.newWallHeight
+        h = self.getHeight()
         H = h*zAxis
         
         # normal to the current wall segment in the direction of the attached wall to be created
@@ -1125,9 +1175,9 @@ class Wall(Item):
         
         wall1 = self
         context = self.context
-        prk = context.window_manager.prk
+        prk = context.scene.prk
         w = prk.newWallWidth
-        h = prk.newWallHeight
+        h = self.getHeight()
         H = h*zAxis
         
         o12 = wall1.getCornerEmpty(o1)
@@ -1208,7 +1258,7 @@ class Wall(Item):
     def insert(self, o, obj, constructor):
         o2 = self.getCornerEmpty(o)
         o1 = self.getPrevious(o2)
-        parent_set(obj, self.parent)
+        self.parent_set(obj)
         # create an item instance with <constructor> and init the instance
         constructor(self.context, self.op).create(obj, self, o1, o2)
     
@@ -1255,6 +1305,42 @@ class Wall(Item):
             # let cancel event happen, i.e. don't call op.mover.end() immediately
             op.finished = True
         return {'PASS_THROUGH'}
+    
+    def parent_set(self, *objects):
+        parent = self.getExternalWallParent() if self.external else self.getLevelParent()
+        parent_set(parent, *objects)
+        return parent
+    
+    def getLevelParent(self):
+        parent = self.parent
+        context = self.context
+        prk = context.scene.prk
+        levelIndex = self.inheritLevelFrom.parent["level"] if self.inheritLevelFrom else prk.levels[prk.levelIndex].index
+        levelParent = None
+        for o in parent.children:
+            if "level" in o and o["level"] == levelIndex:
+                levelParent = o
+                break
+        if not levelParent:
+            # create a Blender parent object for the level
+            levelParent = createEmptyObject("level "+str(levelIndex), (0., 0., getLevelZ(context)), True, **self.emptyPropsLevel)
+            levelParent["level"] = levelIndex
+            parent_set(parent, levelParent)
+        return levelParent
+    
+    def getExternalWallParent(self):
+        parent = self.parent
+        ewParent = None
+        for o in parent.children:
+            if "ex" in o and o["ex"]:
+                ewParent = o
+                break
+        if not ewParent:
+            # create a Blender parent object for external walls
+            ewParent = createEmptyObject("external walls", (0., 0., 0.), True, **self.emptyPropsLevel)
+            ewParent["ex"] = 1
+            parent_set(parent, ewParent)
+        return ewParent
 
 
-pContext.register(Wall, GuiWall)
+pContext.register(Wall, GuiWall, "wc", "ws", "wa")

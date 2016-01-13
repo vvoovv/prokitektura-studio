@@ -31,18 +31,18 @@ def appendFromFile(context, filepath):
     return parent
 
 
-def getLevelHeight(context):
-    prk = context.window_manager.prk
-    try:
-        height = prk.levels[prk.levelIndex].z
-    except:
-        height = 0.
-    return height
+def getLevelZ(context):
+    prk = context.scene.prk
+    z = 0.
+    if prk.newWallType == "internal":
+        for i in range(prk.levelIndex):
+            z += prk.levelBundles[prk.levels[i].bundle].height
+    return z
 
 
 def getLevelLocation(context):
     loc = context.scene.cursor_location.copy()
-    loc.z = getLevelHeight(context)
+    loc.z = 0
     return loc
 
 
@@ -79,8 +79,11 @@ class Context:
         if not _id in self.presetCollections: return
         self.presetCollections[_id]()
     
-    def register(self, Cls, GuiCls):
-        self.items[Cls.type] = (Cls, GuiCls())
+    def register(self, Cls, GuiCls, *extraTypes):
+        gui = GuiCls()
+        self.items[Cls.type] = (Cls, gui)
+        for t in extraTypes:
+            self.items[t] = (Cls, gui)
     
     def register_class(self, _id, cl):
         if not _id in self.classes:

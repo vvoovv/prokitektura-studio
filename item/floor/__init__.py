@@ -218,7 +218,7 @@ class Floor:
         # without scene.update() hook modifiers will not work correctly
         context.scene.update()
         # perform parenting
-        parent_set(obj, parent)
+        parent_set(parent, obj)
         # one more update
         context.scene.update()
         
@@ -251,7 +251,7 @@ class Floor:
         # without scene.update() hook modifiers will not work correctly
         context.scene.update()
         # perform parenting
-        parent_set(obj, parent)
+        parent_set(parent, obj)
         # one more update
         context.scene.update()
         

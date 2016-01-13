@@ -78,10 +78,12 @@ def createPolyCurve(name, location, points):
 
 def assignGroupToVerts(obj, layer, groupName, *verts):
     """
-    Creates a new vertex group with the name groupName and
-    assigns verts from the verts tuple to the group
+    Creates a new vertex group with the name groupName if it doesn't exist
+    and assigns verts from the <verts> tuple to the group
     """
-    groupIndex = obj.vertex_groups.new(groupName).index
+    groups = obj.vertex_groups
+    
+    groupIndex = groups[groupName].index if groupName in groups else groups.new(groupName).index
     for v in verts:
         v[layer][groupIndex] = 1.0
     return groupIndex
@@ -98,10 +100,7 @@ def getVertsForVertexGroup(obj, bm, group):
     return verts
 
 
-def parent_set(objects, parent):
-    if not isinstance(objects, (tuple, list)):
-        objects = (objects,)
-    
+def parent_set(parent, *objects):
     for obj in objects:
         obj.parent = parent
 
