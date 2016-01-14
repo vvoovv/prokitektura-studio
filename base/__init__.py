@@ -31,12 +31,11 @@ def appendFromFile(context, filepath):
     return parent
 
 
-def getLevelZ(context):
+def getLevelZ(context, levelIndex):
     prk = context.scene.prk
     z = 0.
-    if prk.newWallType == "internal":
-        for i in range(prk.levelIndex):
-            z += prk.levelBundles[prk.levels[i].bundle].height
+    for i in range(levelIndex):
+        z += prk.levelBundles[prk.levels[i].bundle].height
     return z
 
 

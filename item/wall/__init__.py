@@ -198,7 +198,7 @@ class Wall(Item):
     
     emptyPropsCorner = {'empty_draw_type':'CUBE', 'empty_draw_size':0.02}
     emptyPropsSegment = {'empty_draw_type':'SPHERE', 'empty_draw_size':0.05}
-    emptyPropsLevel = {'empty_draw_type':'PLAIN_AXES', 'empty_draw_size':0.05}
+    emptyPropsLevel = {'empty_draw_type':'PLAIN_AXES', 'empty_draw_size':0.05, 'lock_location':(True, True, False)}
     
     def __init__(self, context, op):
         super().__init__(context, op)
@@ -316,7 +316,7 @@ class Wall(Item):
         
         # create faces
         # bottom face
-        bm.faces.new((v[0], v[3], v[2], v[1]))
+        #bm.faces.new((v[0], v[3], v[2], v[1]))
         # top face
         bm.faces.new((v[4], v[5], v[6], v[7]))
         # left face
@@ -379,7 +379,11 @@ class Wall(Item):
         
         # perform parenting
         directParent = self.parent_set(obj, l0, r0, l1, r1)
-        
+        # add a HOOK modifier controlling the wall height
+        addHookModifier(obj, "t",
+            self.getHeightEmpty() if (external or prk.levelIndex == len(prk.levels)-1) else self.getLevelParent(1),
+            "t"
+        )
         # without scene.update() parenting and hook modifiers will not work correctly
         # this step is probably optional here, however it's required in self.extend(..)
         context.scene.update()
@@ -644,6 +648,15 @@ class Wall(Item):
         context.scene.update()
         # perform parenting
         directParent = self.parent_set(obj, l0, r0, l1, r1)
+        # add a HOOK modifier controlling the wall height
+        if not self.external:
+            levelIndex = -1
+        addHookModifier(obj, "t",
+            self.getHeightEmpty() \
+            if (self.external or (self.inheritLevelFrom and self.inheritLevelFrom.parent["level"]==prk.levels[-1].index) or prk.levelIndex == len(prk.levels)-1) \
+            else self.getLevelParent(1),
+            "t"
+        )
         context.scene.update()
         
         # add hook modifiers
@@ -898,9 +911,13 @@ class Wall(Item):
                         break
             else:
                 levelIndex = prk.levelIndex
-        return sum(prk.levelBundles[level.bundle].height for level in prk.levels) \
+        return self.getTotalHeight() \
             if self.external else \
             prk.levelBundles[prk.levels[levelIndex].bundle].height
+    
+    def getTotalHeight(self):
+        prk = self.context.scene.prk
+        return sum(prk.levelBundles[level.bundle].height for level in prk.levels)
     
     def setWidth(self, o, value):
         o = self.getCornerEmpty(o)
@@ -1316,20 +1333,33 @@ class Wall(Item):
         parent_set(parent, *objects)
         return parent
     
-    def getLevelParent(self):
+    def getLevelParent(self, levelOffset=0):
+        # Optional levelOffset refers to GUI level index offset in the GUI list of levels
         parent = self.parent
         context = self.context
         prk = context.scene.prk
-        levelIndex = self.inheritLevelFrom.parent["level"] if self.inheritLevelFrom else prk.levels[prk.levelIndex].index
+        index = self.inheritLevelFrom.parent["level"] \
+            if self.inheritLevelFrom \
+            else prk.levels[prk.levelIndex].index
+        # levelIndex is GUI level index in the GUI list of levels
+        levelIndex = prk.levelIndex
+        if self.inheritLevelFrom:
+            for i,l in enumerate(prk.levels):
+                if l.index == index:
+                    levelIndex = i
+                    break
+        if levelOffset:
+            levelIndex += levelOffset
+            index = prk.levels[levelIndex].index
         levelParent = None
         for o in parent.children:
-            if "level" in o and o["level"] == levelIndex:
+            if "level" in o and o["level"] == index:
                 levelParent = o
                 break
         if not levelParent:
             # create a Blender parent object for the level
-            levelParent = createEmptyObject("level "+str(levelIndex), (0., 0., getLevelZ(context)), True, **self.emptyPropsLevel)
-            levelParent["level"] = levelIndex
+            levelParent = createEmptyObject("level "+str(index), (0., 0., getLevelZ(context, levelIndex)), True, **self.emptyPropsLevel)
+            levelParent["level"] = index
             parent_set(parent, levelParent)
         return levelParent
     
@@ -1346,6 +1376,20 @@ class Wall(Item):
             ewParent["ex"] = 1
             parent_set(parent, ewParent)
         return ewParent
+    
+    def getHeightEmpty(self):
+        """Get a Blender EMPTY that controls the height of the whole building"""
+        ewParent = self.getExternalWallParent()
+        hEmpty = None
+        for o in ewParent.children:
+            if "t" in o and o["t"] == "h":
+                hEmpty = o
+                break
+        if not hEmpty:
+            hEmpty = createEmptyObject("h", (0., 0., self.getTotalHeight()), True, **self.emptyPropsLevel)
+            hEmpty["t"] = "h"
+            parent_set(ewParent, hEmpty)
+        return hEmpty
 
 
 pContext.register(Wall, GuiWall, "wc", "ws", "wa")
