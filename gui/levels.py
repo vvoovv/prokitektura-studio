@@ -1,5 +1,27 @@
 import bpy
-from base import pContext
+from base import pContext, getModelParent
+
+
+def updateHeight(bundle, context):
+    # update height and position for all levels
+    prk = context.scene.prk
+    # build a dictionary of all level parents up
+    levels = {}
+    parent = getModelParent(context)
+    for o in parent.children:
+        if "level" in o:
+            levels[o["level"]] = o
+        elif "h" in o:
+            totalHeight = o
+    h = 0.
+    update = False
+    for l in prk.levels:
+        if update:
+            levels[l.index].location.z = h
+        else:
+            update = True
+        h += prk.levelBundles[l.bundle].height
+    totalHeight.location.z = h
 
 
 class PLAN_UL_levels(bpy.types.UIList):
@@ -43,7 +65,8 @@ class LevelBundle(bpy.types.PropertyGroup):
         min = 0.1,
         max = 10,
         step = 0.1,
-        unit = "LENGTH"
+        unit = "LENGTH",
+        update = updateHeight
     )
 
 
