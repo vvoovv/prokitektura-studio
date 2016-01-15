@@ -733,10 +733,10 @@ class Wall(Item):
         end["n"] = start["g"]
         start["p"] = end["g"]
         del start["e"], end["e"]
-
-        # create Blender EMPTY objects for the just created wall segment:
-        s1 = self.createSegmentEmptyObject(end, start, self.parent, start.hide)
-        s2 = self.createSegmentEmptyObject(self.getNeighbor(end), self.getNeighbor(start), self.parent, not start.hide)
+        
+        # create segment EMPTYs for the just created wall segment
+        s1 = self.createSegmentEmptyObject(end, start, mesh.parent, start.hide)
+        s2 = self.createSegmentEmptyObject(self.getNeighbor(end), self.getNeighbor(start), mesh.parent, not start.hide)
         setCustomAttributes(s1, m=meshIndex)
         setCustomAttributes(s2, m=meshIndex)
     
