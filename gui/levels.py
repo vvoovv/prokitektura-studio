@@ -24,6 +24,18 @@ def updateHeight(bundle, context):
     totalHeight.location.z = h
 
 
+def toggleLayerVisibility(level, context):
+    hide = not level.visible
+    parent = getModelParent(context)
+    if not parent:
+        return
+    # find the related level parent Blender object
+    for o in parent.children:
+        if "level" in o and o["level"] == level.index:
+            for _o in o.children:
+                _o.hide = hide
+
+
 class PLAN_UL_levels(bpy.types.UIList):
     
     def draw_item(self, context, layout, data, item, icon, active_data, active_property):
@@ -50,7 +62,8 @@ class Level(bpy.types.PropertyGroup):
     )
     visible = bpy.props.BoolProperty(
         description="",
-        default=True
+        default=True,
+        update=toggleLayerVisibility
     )
 
 
