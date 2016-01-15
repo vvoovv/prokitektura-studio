@@ -652,7 +652,11 @@ class Wall(Item):
         # add a HOOK modifier controlling the wall height
         addHookModifier(obj, "t",
             self.getHeightEmpty() \
-            if (self.external or (self.inheritLevelFrom and self.inheritLevelFrom.parent["level"]==prk.levels[-1].index) or prk.levelIndex == len(prk.levels)-1) \
+            if (
+                self.external or
+                (self.inheritLevelFrom and self.inheritLevelFrom.parent["level"]==prk.levels[-1].index) or
+                (not self.inheritLevelFrom and prk.levelIndex == len(prk.levels)-1)
+            ) \
             else self.getLevelParent(1),
             "t"
         )
@@ -1190,10 +1194,12 @@ class Wall(Item):
         # try to start the new segment from the middle of the shortest from <o1> and <o2>
         
         wall1 = self
+        referenceWall = wall1 if not wall1.external or wall2.external else wall2
+        referenceWall.inheritLevelFrom = o1 if not wall1.external or wall2.external else o2
         context = self.context
         prk = context.scene.prk
         w = prk.newWallWidth
-        h = self.getHeight()
+        h = referenceWall.getHeight()
         H = h*zAxis
         
         o12 = wall1.getCornerEmpty(o1)
@@ -1259,7 +1265,7 @@ class Wall(Item):
         
         # <a1>, <a2> are corner EMPTYs controlling the attached segment
         # <a> is a segment EMPTY fot the attached segment
-        a1, a, a2 = self.createAttachment(verts, attachLeft1, False)
+        a1, a, a2 = referenceWall.createAttachment(verts, attachLeft1, False)
         wallAttached = getWallFromEmpty(context, self.op, a)
         # set additional attribute for <a2> and its neighbor
         setCustomAttributes(a2, al=1 if attachLeft2 else 0)
