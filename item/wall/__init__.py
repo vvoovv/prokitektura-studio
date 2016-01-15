@@ -1,5 +1,5 @@
 import bmesh
-from base import pContext, getLevelLocation, getLevelZ, xAxis, yAxis, zAxis, zero
+from base import pContext, getLevelLocation, getLevelZ, getModelParent, xAxis, yAxis, zAxis, zero
 from base.item import Item
 from blender_util import *
 
@@ -220,17 +220,18 @@ class Wall(Item):
                     self.mesh = obj
                     break
             # check if have external or internal wall part
-            self.external = True if "ex" in parent and parent["ex"] else False
+            self.external = True if "co" in parent and parent["co"] else False
     
-    def create(self, locEnd=None, parent=None):
+    def create(self, locEnd=None):
         from mathutils import Vector
-        # <parent> is actually a layer parent or the parent for external walls
-        if parent:
-            parent = parent.parent
         
         context = self.context
         prk = context.scene.prk
         op = self.op
+        
+        # check if we have a parent for the whole model
+        parent = getModelParent(context)
+        
         loc = getLevelLocation(context)
         
         external = prk.newWallType == "external"
@@ -270,7 +271,7 @@ class Wall(Item):
             parent = createOneVertObject("Model", loc)
             loc = Vector((0., 0., 0.))
             # type
-            parent["t"] = self.type
+            parent["t"] = "model"
             parent["container"] = 1
             parent.dupli_type = "VERTS"
             parent.hide_select = True
@@ -649,8 +650,6 @@ class Wall(Item):
         # perform parenting
         directParent = self.parent_set(obj, l0, r0, l1, r1)
         # add a HOOK modifier controlling the wall height
-        if not self.external:
-            levelIndex = -1
         addHookModifier(obj, "t",
             self.getHeightEmpty() \
             if (self.external or (self.inheritLevelFrom and self.inheritLevelFrom.parent["level"]==prk.levels[-1].index) or prk.levelIndex == len(prk.levels)-1) \
@@ -1329,7 +1328,7 @@ class Wall(Item):
         return {'PASS_THROUGH'}
     
     def parent_set(self, *objects):
-        parent = self.getExternalWallParent() if self.external else self.getLevelParent()
+        parent = self.getCommonParent() if self.external else self.getLevelParent()
         parent_set(parent, *objects)
         return parent
     
@@ -1363,32 +1362,32 @@ class Wall(Item):
             parent_set(parent, levelParent)
         return levelParent
     
-    def getExternalWallParent(self):
+    def getCommonParent(self):
         parent = self.parent
-        ewParent = None
+        commonParent = None
         for o in parent.children:
-            if "ex" in o and o["ex"]:
-                ewParent = o
+            if "co" in o and o["co"]:
+                commonParent = o
                 break
-        if not ewParent:
+        if not commonParent:
             # create a Blender parent object for external walls
-            ewParent = createEmptyObject("external walls", (0., 0., 0.), True, **self.emptyPropsLevel)
-            ewParent["ex"] = 1
-            parent_set(parent, ewParent)
-        return ewParent
+            commonParent = createEmptyObject("common", (0., 0., 0.), True, **self.emptyPropsLevel)
+            commonParent["co"] = 1
+            parent_set(parent, commonParent)
+        return commonParent
     
     def getHeightEmpty(self):
         """Get a Blender EMPTY that controls the height of the whole building"""
-        ewParent = self.getExternalWallParent()
+        parent = self.parent
         hEmpty = None
-        for o in ewParent.children:
-            if "t" in o and o["t"] == "h":
+        for o in parent.children:
+            if "h" in o and o["h"]:
                 hEmpty = o
                 break
         if not hEmpty:
             hEmpty = createEmptyObject("h", (0., 0., self.getTotalHeight()), True, **self.emptyPropsLevel)
-            hEmpty["t"] = "h"
-            parent_set(ewParent, hEmpty)
+            hEmpty["h"] = 1
+            parent_set(parent, hEmpty)
         return hEmpty
 
 

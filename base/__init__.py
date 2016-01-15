@@ -63,6 +63,16 @@ def getItem(context, op, o):
     return item
 
 
+def getModelParent(context):
+    """Returns the parent model for the whole model or None"""
+    parent = None
+    for o in context.scene.objects:
+        if not o.parent and "t" in o and o["t"] == "model":
+            parent = o
+            break
+    return parent
+
+
 class Context:
     
     # a registry to store references to Blender operators responsible for specific categories
