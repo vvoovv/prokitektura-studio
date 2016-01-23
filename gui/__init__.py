@@ -90,7 +90,8 @@ class PanelItem(bpy.types.Panel):
         layout = self.layout
         guiEntry = pContext.items[o["t"]]
         layout.box().label("%s: %s" % (guiEntry[0].name, o.name))
-        guiEntry[1].draw(context, layout)
+        if guiEntry[1]:
+            guiEntry[1].draw(context, layout)
 
 
 class AddItem(bpy.types.Operator):
@@ -127,8 +128,17 @@ class PrkStudioProperties(bpy.types.PropertyGroup):
     levelIndex = bpy.props.IntProperty(
         description = "Index of the active level"
     )
-    # the name of the Blender object for the current floor
-    floorName = bpy.props.StringProperty()
+    areaType = bpy.props.EnumProperty(
+        items = [
+            ("room", "room", "Create a room"),
+            ("floor", "floor", "Create a floor")
+        ],
+        description = "The type of the area (room or floor) to be created",
+        default = "room"
+    )
+    areaName = bpy.props.StringProperty(
+        description = "The name of the Blender object for the current area"
+    )
     wallAtRight = bpy.props.BoolProperty(
         name = "The wall is at the right",
         description = "Defines if the wall is at the right (checked) from control points or at the left (unchecked)",

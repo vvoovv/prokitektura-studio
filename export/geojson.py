@@ -73,12 +73,12 @@ class GeoJson(bpy.types.Operator, ExportHelper):
         }
         rotationMatrix = mathutils.Matrix.Rotation(math.radians(context.scene["heading"]), 4, "Z")
         projection = TransverseMercator(lat=context.scene["latitude"], lon=context.scene["longitude"])
-        # iterate over all floors
+        # iterate through all rooms
         for o in context.scene.objects:
-            if not ("t" in o and o["t"] == "floor"):
+            if not ("t" in o and o["t"] == "room"):
                 continue
             coords = []
-            # iterate through EMPTYs that control the vertices of polygon of the floor
+            # iterate through EMPTYs that control the vertices of polygon of the area
             for m in o.modifiers:
                 e = m.object
                 p = rotationMatrix * e.parent.matrix_world * e.location

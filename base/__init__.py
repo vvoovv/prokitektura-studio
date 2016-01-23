@@ -89,7 +89,7 @@ class Context:
         self.presetCollections[_id]()
     
     def register(self, Cls, GuiCls, *extraTypes):
-        gui = GuiCls()
+        gui = GuiCls() if GuiCls else None
         self.items[Cls.type] = (Cls, gui)
         for t in extraTypes:
             self.items[t] = (Cls, gui)

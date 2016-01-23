@@ -1,14 +1,14 @@
 import bpy, bmesh
+from base import zero
 from blender_util import createMeshObject, getBmesh, assignGroupToVerts, addHookModifier, parent_set
 from item.wall import getWallFromEmpty
-from base import zero
 
 
-def getFloorObject(context):
-    prk = context.window_manager.prk
-    if prk.floorName and not prk.floorName in bpy.data.objects:
-        prk.floorName = ""
-    return bpy.data.objects[prk.floorName] if prk.floorName else None
+def getAreaObject(context):
+    prk = context.scene.prk
+    if prk.areaName and not prk.areaName in bpy.data.objects:
+        prk.areaName = ""
+    return bpy.data.objects[prk.areaName] if prk.areaName else None
 
 
 class WalkAlongWalls:
@@ -170,11 +170,8 @@ class WalkAlongWalls:
             (not a["l"] and ((not a["al"] and not a["e"]) or (a["al"] and a["e"])))
 
 
-class Floor:
-    
-    type = "floor"
-    
-    name = "Floor"
+class Area:
+    """A base class for item.Room and item.Floor"""
     
     def __init__(self, context, op, empty=None):
         self.context = context
@@ -184,17 +181,17 @@ class Floor:
 
     def make(self, o, wall):
         o = wall.getCornerEmpty(o)
-        # go through all EMPTYs and create a floor from them
+        # go through all EMPTYs and create an area from them
         self.makeFromEmpties( WalkAlongWalls(o.parent).walk(o, wall) )
     
     def makeFromEmpties(self, empties):
         context = self.context
         parent = empties[0].parent
         
-        obj = createMeshObject("Floor")
+        obj = createMeshObject(self.name)
         obj.hide_select = True
         # type
-        obj["t"] = Floor.type
+        obj["t"] = self.type
         
         bm = getBmesh(obj)
         # create a deform layer to store vertex groups
@@ -233,10 +230,10 @@ class Floor:
         context = self.context
         parent = empty.parent
         
-        obj = createMeshObject("Floor")
+        obj = createMeshObject(self.name)
         obj.hide_select = True
-        context.window_manager.prk.floorName = obj.name
-        obj["t"] = "floor"
+        context.window_manager.prk.areaName = obj.name
+        obj["t"] = self.type
         obj["counter"] = 0
         group = "0"
         bm = getBmesh(obj)
@@ -260,18 +257,18 @@ class Floor:
     def extend(self, empty):
         context = self.context
         
-        # get Blender object for the floor
-        obj = getFloorObject(self.context)
+        # get Blender object for the area
+        obj = getAreaObject(self.context)
         bm = getBmesh(obj)
         bm.verts.ensure_lookup_table()
         _vert = bm.verts[-1]
         
-        # find the Blender object for the empty that controls the last created floor vertex
+        # find the Blender object for the empty that controls the last created area vertex
         counter = obj["counter"]
         prevEmpty = obj.modifiers[counter].object
         
         # If empty and prevEmpty belong to the same wall,
-        # check if we need to create in-between verts for the floor,
+        # check if we need to create in-between verts for the area,
         # i.e. empty and prevEmpty aren't adjacent
         inbetweens = []
         if empty.parent == prevEmpty.parent and empty["m"] == prevEmpty["m"]:
@@ -304,7 +301,7 @@ class Floor:
                 # for the closed wall check whick path is shorter, in the forward or backward directions
                 if isClosed and len(empties) > len(_empties): 
                     empties = _empties
-                # finally, create floor verts for empties
+                # finally, create area verts for EMTPYs
                 for e in empties:
                     counter +=1
                     group = str(counter)
@@ -323,7 +320,7 @@ class Floor:
         bm.free()
         
         # without scene.update() hook modifiers will not work correctly
-        # this step is probably optional here, however it's required in FloorBegin.execute()
+        # this step is probably optional here, however it's required in AreaBegin.execute()
         context.scene.update()
         if inbetweens:
             for e,g in inbetweens:
@@ -331,7 +328,7 @@ class Floor:
         addHookModifier(obj, group, empty, group)
     
     def finish(self):
-        obj = getFloorObject(self.context)
+        obj = getAreaObject(self.context)
         bm = getBmesh(obj)
         bm.verts.ensure_lookup_table()
         face = bm.faces.new(bm.verts)
@@ -340,7 +337,7 @@ class Floor:
             bmesh.ops.reverse_faces(bm, faces = (face,))
             bm.to_mesh(obj.data)
         bm.free()
-        self.context.window_manager.prk.floorName = ""
+        self.context.window_manager.prk.areaName = ""
         
     def getLocation(self, empty):
         return empty.matrix_parent_inverse * empty.location

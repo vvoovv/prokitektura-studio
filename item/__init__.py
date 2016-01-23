@@ -1,7 +1,7 @@
 from .wall.ops import *
 from .window.ops import *
 from .door.ops import *
-from .floor.ops import *
+from .area.ops import *
 
 
 def register():

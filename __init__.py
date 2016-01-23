@@ -19,7 +19,8 @@ def _checkPath():
         sys.path.append(path)
 _checkPath()
 
-import base, gui, item, item.wall, item.floor, item.window, export
+import base, gui, item, item.wall, item.window, item.room, export
+import item.area
 import metro
 if "bpy" in locals():
     import imp
@@ -28,8 +29,9 @@ if "bpy" in locals():
     imp.reload(item)
     imp.reload(metro)
     imp.reload(item.wall)
-    imp.reload(item.floor)
+    imp.reload(item.area)
     imp.reload(item.window)
+    imp.reload(item.room)
 
 import bpy
 
@@ -56,10 +58,10 @@ def register():
     km.keymap_items.new("prk.wall_edit_extend", "E", "PRESS")
     # shortcut for completing the wall
     km.keymap_items.new("prk.wall_complete", "Q", "PRESS")
-    # shortcut to make a floor
-    km.keymap_items.new("prk.floor_make", "F", "PRESS", ctrl=True)
-    # shortcut to work on a floor
-    km.keymap_items.new("prk.floor_work", "F", "PRESS")
+    # shortcut to make an area
+    km.keymap_items.new("prk.area_make", "F", "PRESS", ctrl=True)
+    # shortcut to work on an area
+    km.keymap_items.new("prk.area_work", "F", "PRESS")
     #kmi.properties.name = ""
     keymap = km
 

@@ -177,7 +177,7 @@ class GuiWall:
     def draw(self, context, layout):
         o = context.scene.objects.active
         
-        layout.operator("prk.floor_make")
+        layout.operator("prk.area_make")
         
         layout.separator()
         layout.operator("prk.add_window")
@@ -1193,11 +1193,16 @@ class Wall(Item):
         # Try to attach a new segment perpendicular to longest one from <o1> and <o2> and
         # try to start the new segment from the middle of the shortest from <o1> and <o2>
         
-        wall1 = self
-        referenceWall = wall1 if not wall1.external or wall2.external else wall2
-        referenceWall.inheritLevelFrom = o1 if not wall1.external or wall2.external else o2
         context = self.context
         prk = context.scene.prk
+        wall1 = self
+        referenceWall = wall1 if not wall1.external or wall2.external else wall2
+        if referenceWall.external:
+            if prk.newWallType == "internal":
+                # override referenceWall.external
+                referenceWall.external = False
+        else:
+            referenceWall.inheritLevelFrom = o1 if not wall1.external else o2
         w = prk.newWallWidth
         h = referenceWall.getHeight()
         H = h*zAxis

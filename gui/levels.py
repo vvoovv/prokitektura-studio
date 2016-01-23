@@ -16,7 +16,7 @@ def updateHeight(bundle, context):
     h = 0.
     update = False
     for l in prk.levels:
-        if update:
+        if update and l.index in levels:
             levels[l.index].location.z = h
         else:
             update = True
