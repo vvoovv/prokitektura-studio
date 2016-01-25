@@ -32,8 +32,24 @@ def toggleLayerVisibility(level, context):
     # find the related level parent Blender object
     for o in parent.children:
         if "level" in o and o["level"] == level.index:
-            for _o in o.children:
-                _o.hide = hide
+            toggleObjectVisibility(o, hide)
+
+
+def toggleObjectVisibility(o, hide):
+    if hide:
+        if o.hide:
+            # Mark it that is shouldn't appear visible,
+            # when we set the level visibility to "visible"
+            o["_"] = 1
+        else:
+            o.hide = True
+    else:
+        if "_" in o:
+            del o["_"]
+        else:
+            o.hide = False
+    for _o in o.children:
+        toggleObjectVisibility(_o, hide)
 
 
 class PLAN_UL_levels(bpy.types.UIList):
