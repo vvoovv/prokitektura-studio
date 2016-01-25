@@ -1,7 +1,7 @@
 import bpy, bmesh
 from base import zero
-from blender_util import createMeshObject, getBmesh, assignGroupToVerts, addHookModifier, parent_set
-from item.wall import getWallFromEmpty
+from blender_util import createMeshObject, createEmptyObject, getBmesh, assignGroupToVerts, addHookModifier, parent_set
+from item.wall import getWallFromEmpty, Wall
 
 
 def getAreaObject(context):
@@ -186,7 +186,6 @@ class Area:
     
     def makeFromEmpties(self, empties):
         context = self.context
-        parent = empties[0].parent
         
         obj = createMeshObject(self.name)
         obj.hide_select = True
@@ -215,7 +214,7 @@ class Area:
         # without scene.update() hook modifiers will not work correctly
         context.scene.update()
         # perform parenting
-        parent_set(parent, obj)
+        self.parent_set(empties[0].parent, obj)
         # one more update
         context.scene.update()
         
@@ -228,7 +227,6 @@ class Area:
     
     def create(self, empty):
         context = self.context
-        parent = empty.parent
         
         obj = createMeshObject(self.name)
         obj.hide_select = True
@@ -248,7 +246,7 @@ class Area:
         # without scene.update() hook modifiers will not work correctly
         context.scene.update()
         # perform parenting
-        parent_set(parent, obj)
+        self.parent_set(empty.parent, obj)
         # one more update
         context.scene.update()
         
@@ -341,3 +339,19 @@ class Area:
         
     def getLocation(self, empty):
         return empty.matrix_parent_inverse * empty.location
+    
+    def parent_set(self, parent, obj):
+        if "co" in parent:
+            modelParent = parent.parent
+            # <parent> must be for the level with the index zero
+            parent = None
+            for levelParent in modelParent.children:
+                if "level" in levelParent and not levelParent["level"]:
+                    parent = levelParent
+                    break
+            if not parent:
+                # create a Blender parent object for the level with the index zero
+                parent = createEmptyObject("level0", (0., 0., 0.), True, **Wall.emptyPropsLevel)
+                parent["level"] = 0
+                parent_set(modelParent, parent)
+        parent_set(parent, obj)
