@@ -27,6 +27,7 @@ class PanelLevels(bpy.types.Panel):
             # active level
             level = prk.levels[prk.levelIndex]
             layout.prop(prk.levelBundles[level.bundle], "height")
+            layout.operator("prk.level_remove", icon='ZOOMOUT')
 
 
 class PanelNewWall(bpy.types.Panel):

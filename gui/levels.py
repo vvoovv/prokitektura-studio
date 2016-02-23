@@ -99,34 +99,14 @@ class LevelBundle(bpy.types.PropertyGroup):
     )
 
 
-def getPresetCollections(self, context):
-    items = []
-    for entry in pContext.presetCollections:
-        entry = pContext.presetCollections[entry]
-        items.append((entry.id, entry.name, entry.description))
-    return items
-
-class LoadPreset(bpy.types.Operator):
-    bl_idname = "scene.load_preset"
-    bl_label = "preset"
-    bl_description = "Load a preset"
-    bl_options = {"REGISTER"}
-    
-    presetCollection = bpy.props.EnumProperty(items=getPresetCollections)
-
-    def invoke(self, context, event):
-        pContext.loadPresetCollection(self.presetCollection)
-        return {'FINISHED'}
-
+# a symbol is used to mark a LevelBundle
+bundleSymbols = "ABCDEFGHIJ"
 
 class AddLevel(bpy.types.Operator):
     bl_idname = "prk.level_add"
     bl_label = "Add level(s)"
     bl_description = "Add the specified number of levels"
     bl_options = {"REGISTER", "UNDO"}
-    
-    # a symbol is used to mark a LevelBundle
-    symbols = "ABCDEFGHIJ"
     
     def invoke(self, context, event):
         prk = context.scene.prk
@@ -135,7 +115,7 @@ class AddLevel(bpy.types.Operator):
         # create a new LevelBundle
         bundleIndex = len(bundles)
         bundle = bundles.add()
-        bundle.symbol = self.symbols[bundleIndex % len(self.symbols)]
+        bundle.symbol = bundleSymbols[bundleIndex % len(bundleSymbols)]
         bundle.height = prk.newLevelHeight
         # create level(s) for the just created LevelBundle
         levelIndex = len(levels)
@@ -145,4 +125,45 @@ class AddLevel(bpy.types.Operator):
             level.name = "Level "+str(levelIndex)
             level.bundle = bundleIndex
             levelIndex += 1
+        return {'FINISHED'}
+
+
+class RemoveLevel(bpy.types.Operator):
+    bl_idname = "prk.level_remove"
+    bl_label = "Remove level"
+    bl_description = "Remove the active level"
+    bl_options = {"REGISTER", "UNDO"}
+    
+    def invoke(self, context, event):
+        prk = context.scene.prk
+        levelIndex = prk.levelIndex
+        levels = prk.levels
+        level = prk.levels[levelIndex]
+        bundle = level.bundle
+        
+        levels.remove(levelIndex)
+        bundles = prk.levelBundles
+        if levels:
+            # check if we need to remove the bundle, i.e. <level> is the last one in the bundle
+            removeBundle = False
+            if levelIndex == 0:
+                if levels[0].bundle != bundle:
+                    removeBundle = True
+            elif levelIndex == len(levels):
+                if levels[-1].bundle != bundle:
+                    removeBundle = True
+            elif levels[levelIndex-1].bundle != bundle and levels[levelIndex].bundle != bundle:
+                removeBundle = True
+            if removeBundle:
+                bundles.remove(bundle)
+                if bundle < len(bundles):
+                    # we need to update symbols for the bundles to ensure consistency
+                    for bundleIndex in range(bundle, len(bundles)):
+                        bundles[bundleIndex].symbol = bundleSymbols[bundleIndex % len(bundleSymbols)]
+                    # we need to update bundle index for the levels to ensure consistency
+                    for level in levels:
+                        if level.bundle > bundle:
+                            level.bundle -= 1
+        else:
+            bundles.clear()
         return {'FINISHED'}
