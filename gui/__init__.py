@@ -3,7 +3,7 @@ import bpy
 from base import pContext
 from base import getLevelLocation, appendFromFile
 
-from item.wall import setWidth, getWidth
+from item.wall import setWidth, getWidth, setLength, getLength
 
 from .levels import PLAN_UL_levels, Level, LevelBundle, AddLevel
 
@@ -157,7 +157,6 @@ class PrkStudioProperties(bpy.types.PropertyGroup):
     wallSegmentWidth = bpy.props.FloatProperty(
         name = "Segment width",
         description = "Width of a wall segment",
-        default = 0.3,
         min = 0.01,
         max = 1000,
         step = 0.1,
@@ -169,6 +168,16 @@ class PrkStudioProperties(bpy.types.PropertyGroup):
         name = "Width for all segments",
         description = "Width for all segments",
         default = False
+    )
+    wallSegmentLength = bpy.props.FloatProperty(
+        name = "Segment length",
+        description = "Length of a wall segment",
+        min = 0.01,
+        max = 1000,
+        step = 0.1,
+        unit = "LENGTH",
+        set = setLength,
+        get = getLength
     )
     newWallType = bpy.props.EnumProperty(
         items = [

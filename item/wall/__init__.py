@@ -172,6 +172,20 @@ def setWidth(self, value):
         wall.setWidth(o, value)
 
 
+def getLength(self):
+    """Returns the length of the wall segment defined by an active segment EMPTY"""
+    context = bpy.context
+    o = context.scene.objects.active
+    return getWallFromEmpty(context, None, o).getLength(o)
+
+
+def setLength(self, value):
+    """Sets the length for the wall segment defined by an active segment EMPTY"""
+    context = bpy.context
+    o = context.scene.objects.active
+    getWallFromEmpty(context, None, o).setLength(o, value)
+
+
 class GuiWall:
     
     def draw(self, context, layout):
@@ -185,9 +199,11 @@ class GuiWall:
         
         layout.operator("prk.wall_flip_controls")
         if o["t"] == "ws" or o["t"] == "wc" or o["t"] == "wa":
+            prk = context.scene.prk
             box = layout.box()
-            box.prop(context.scene.prk, "widthForAllSegments")
-            box.prop(context.scene.prk, "wallSegmentWidth")
+            box.prop(prk, "widthForAllSegments")
+            box.prop(prk, "wallSegmentWidth")
+            layout.prop(prk, "wallSegmentLength")
 
 
 class Wall(Item):
@@ -902,6 +918,14 @@ class Wall(Item):
     def getWidth(self, o):
         return self.getCornerEmpty(o)["w"]
     
+    def getLength(self, o):
+        o2 = self.getCornerEmpty(o)
+        # check if <o2> is at the start of a wall part
+        if "e" in o2 and not o2["e"]:
+            o2 = self.getNext(o2)
+        o1 = self.getPrevious(o2)
+        return (o2.location - o1.location).length
+    
     def getHeight(self):
         """Get height of the wall to be created"""
         prk = self.context.scene.prk
@@ -941,6 +965,16 @@ class Wall(Item):
                     self.getNeighbor(o)["w"] = value
         # a hack, without it the width of the related wall segment won't be updated
         o.location = o.location
+    
+    def setLength(self, o, value):
+        o2 = self.getCornerEmpty(o)
+        # check if <o2> is at the start of a wall part
+        if "e" in o2 and not o2["e"]:
+            o2 = self.getNext(o2)
+        o1 = self.getPrevious(o2)
+        # we can't set length for the attached wall segment
+        if not self.isAttached(o2):
+            o2.location = o1.location + value/(o2.location-o1.location).length*(o2.location-o1.location)
     
     def createCornerEmptyObject(self, name, location, hide):
         empty = createEmptyObject(name, location, hide, **self.emptyPropsCorner)
