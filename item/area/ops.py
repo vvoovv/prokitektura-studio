@@ -18,8 +18,9 @@ class AreaMake(bpy.types.Operator):
         if not wall:
             self.report({"ERROR"}, "To begin an area, select an EMPTY object belonging to the wall")
             return {'CANCELLED'}
-        getAreaInstance(context, self).make(o, wall)
-        
+        o = getAreaInstance(context, self).make(o, wall)
+        bpy.ops.object.select_all(action="DESELECT")
+        o.select = True
         context.scene.objects.active = o
         return {'FINISHED'}
     

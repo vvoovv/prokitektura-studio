@@ -182,13 +182,13 @@ class Area:
     def make(self, o, wall):
         o = wall.getCornerEmpty(o)
         # go through all EMPTYs and create an area from them
-        self.makeFromEmpties( WalkAlongWalls(o.parent).walk(o, wall) )
+        return self.makeFromEmpties( WalkAlongWalls(o.parent).walk(o, wall) )
     
     def makeFromEmpties(self, empties):
         context = self.context
         
         obj = createMeshObject(self.name)
-        obj.hide_select = True
+        #obj.hide_select = True
         # type
         obj["t"] = self.type
         
@@ -224,6 +224,7 @@ class Area:
             group = str(vertIndex)
             addHookModifier(obj, group, e, group)
             vertIndex += 1
+        return obj
     
     def create(self, empty):
         context = self.context
