@@ -1,7 +1,7 @@
 import bmesh
 from base import pContext, getLevelLocation, getLevelZ, getModelParent, xAxis, yAxis, zAxis, zero
 from base.item import Item
-from blender_util import *
+from util.blender import *
 
 
 def getWallFromEmpty(context, op, empty, end=False):

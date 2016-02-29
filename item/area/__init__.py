@@ -1,6 +1,6 @@
 import bpy, bmesh
 from base import zero
-from blender_util import createMeshObject, createEmptyObject, getBmesh, assignGroupToVerts, addHookModifier, parent_set
+from util.blender import createMeshObject, createEmptyObject, getBmesh, assignGroupToVerts, addHookModifier, parent_set
 from item.wall import getWallFromEmpty, Wall
 
 

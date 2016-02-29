@@ -1,7 +1,7 @@
 import math
 import bpy
 
-from blender_util import createEmptyObject, parent_set
+from util.blender import createEmptyObject, parent_set
 from item.wall import addTransformsVariable, addAttachedDrivers
 
 class Mover:

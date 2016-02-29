@@ -1,5 +1,5 @@
 import bpy
-from blender_util import modifier_apply_all
+from util.blender import modifier_apply_all
 
 
 class ExportB4wHtml(bpy.types.Operator):

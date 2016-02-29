@@ -1,7 +1,7 @@
 from base.item import Item
 from base.mover_along_wall import AlongWallMover
 from base.mover_size import SizeMover
-from blender_util import addBooleanModifier, getLastOperator
+from util.blender import addBooleanModifier, getLastOperator
 from item.wall import addTransformsVariable, addLocDiffVariable, addSinglePropVariable
 
 

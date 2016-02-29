@@ -1,6 +1,6 @@
 import bpy
 
-from blender_util import cursor_2d_to_location_3d, getLastOperator
+from util.blender import cursor_2d_to_location_3d, getLastOperator
 from . import Wall, getWallFromEmpty
 from base import zero2
 from base.mover_segment import SegmentMover
