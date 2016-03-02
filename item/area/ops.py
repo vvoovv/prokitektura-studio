@@ -129,3 +129,35 @@ class AreaFinish(bpy.types.Operator):
     def execute(self, context):
         area_finish(context, self)
         return {'FINISHED'}
+
+
+class ExtrudedAdd(bpy.types.Operator):
+    bl_idname = "prk.extruded_add"
+    bl_label = "Add an extruded object"
+    bl_description = "Adds a extruded object (baseboard, ledge) for the border of the area"
+    bl_options = {"REGISTER", "UNDO"}
+    
+    def execute(self, context):
+        from util.blender import getBmesh
+        from item.extruded import Extruded
+        
+        o = context.scene.objects.active
+        bm = getBmesh(o)
+        bm.verts.ensure_lookup_table()
+        # All vertex groups are in the deform layer.
+        # There can be only one deform layer
+        layer = bm.verts.layers.deform[0]
+        # building a list of control EMPTYs
+        controls = []
+        start = bm.verts[0].link_loops[0]
+        loop = start
+        while True:
+            # getting vertex group to find the EMPTY controlling the vertex via a HOOK modifier
+            g = loop.vert[layer].keys()[0]
+            controls.append(o.modifiers[g].object)
+            loop = loop.link_loop_next
+            if loop == start:
+                break
+        bm.free()
+        Extruded(context, self).create(controls, o.parent, ((0.1,0.,0.),(0.1,0.,0.15),(0.05,0.,0.2),(0.,0.,0.2)) )
+        return {'FINISHED'}

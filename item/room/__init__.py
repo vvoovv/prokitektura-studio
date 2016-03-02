@@ -7,6 +7,7 @@ class GuiRoom:
     def draw(self, context, layout):
         o = context.scene.objects.active
         layout.prop(o, "name")
+        layout.operator("prk.extruded_add")
 
 
 class Room(Area):

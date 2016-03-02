@@ -1,5 +1,6 @@
 import bpy, bmesh
 from base import zero
+from base.item import Item
 from util.blender import createMeshObject, createEmptyObject, getBmesh, assignGroupToVerts, addHookModifier, parent_set
 from item.wall import getWallFromEmpty, Wall
 
@@ -170,12 +171,11 @@ class WalkAlongWalls:
             (not a["l"] and ((not a["al"] and not a["e"]) or (a["al"] and a["e"])))
 
 
-class Area:
+class Area(Item):
     """A base class for item.Room and item.Floor"""
     
     def __init__(self, context, op, empty=None):
-        self.context = context
-        self.op = op
+        super().__init__(context, op)
         if empty:
             self.create(empty)
 
