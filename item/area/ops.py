@@ -142,6 +142,13 @@ class ExtrudedAdd(bpy.types.Operator):
         from item.extruded import Extruded
         
         o = context.scene.objects.active
+        selected = context.selected_objects
+        if len(selected)==2:
+            profile = selected[0] if selected[1]==o else selected[1]
+        else:
+            self.report({'ERROR'}, "To create an extruded object first select a profile object then a room object")
+            return {'FINISHED'}
+        
         bm = getBmesh(o)
         bm.verts.ensure_lookup_table()
         # All vertex groups are in the deform layer.
@@ -159,5 +166,5 @@ class ExtrudedAdd(bpy.types.Operator):
             if loop == start:
                 break
         bm.free()
-        Extruded(context, self).create(controls, o.parent, ((0.1,0.,0.),(0.1,0.,0.15),(0.05,0.,0.2),(0.,0.,0.2)) )
+        Extruded(context, self).create(controls, o.parent, profile)
         return {'FINISHED'}
