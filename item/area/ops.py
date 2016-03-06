@@ -45,7 +45,9 @@ def area_begin(context, op):
     if not getWallFromEmpty(context, op, o):
         op.report({'ERROR'}, "To begin an area, select an EMPTY object belonging to the wall")
         return {'CANCELLED'}
+    # an area Blender object will be created in the following call
     getAreaInstance(context, op, o)
+    context.scene.objects.active = o
     
 
 def area_continue(context, op, considerFinish):
@@ -77,7 +79,10 @@ def area_continue(context, op, considerFinish):
 
 
 def area_finish(context, op):
-    getAreaInstance(context, op).finish()
+    o = getAreaInstance(context, op).finish()
+    bpy.ops.object.select_all(action="DESELECT")
+    o.select = True
+    context.scene.objects.active = o
 
 
 class AreaWork(bpy.types.Operator):

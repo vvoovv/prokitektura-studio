@@ -196,11 +196,9 @@ class Area(Item):
         # create a deform layer to store vertex groups
         layer = bm.verts.layers.deform.new()
         
-        vertIndex = 0
         for e in empties:
             vert = bm.verts.new(self.getLocation(e))
-            assignGroupToVerts(obj, layer, str(vertIndex), vert)
-            vertIndex += 1
+            assignGroupToVerts(obj, layer, e["g"], vert)
         
         # the face
         face = bm.faces.new(bm.verts)
@@ -219,26 +217,25 @@ class Area(Item):
         context.scene.update()
         
         # add hook modifiers
-        vertIndex = 0
         for e in empties:
-            group = str(vertIndex)
+            group = e["g"]
             addHookModifier(obj, group, e, group)
-            vertIndex += 1
         return obj
     
-    def create(self, empty):
+    def create(self, o):
         context = self.context
         
         obj = createMeshObject(self.name)
-        obj.hide_select = True
-        context.window_manager.prk.areaName = obj.name
+        #obj.hide_select = True
+        context.scene.prk.areaName = obj.name
         obj["t"] = self.type
-        obj["counter"] = 0
-        group = "0"
+        group = o["g"]
+        # remember the group for the first vertex
+        obj["last"] = group
         bm = getBmesh(obj)
         # create a deform layer to store vertex groups
         layer = bm.verts.layers.deform.new()
-        vert = bm.verts.new(self.getLocation(empty))
+        vert = bm.verts.new(self.getLocation(o))
         
         assignGroupToVerts(obj, layer, group, vert)
         bm.to_mesh(obj.data)
@@ -247,11 +244,11 @@ class Area(Item):
         # without scene.update() hook modifiers will not work correctly
         context.scene.update()
         # perform parenting
-        self.parent_set(empty.parent, obj)
+        self.parent_set(o.parent, obj)
         # one more update
         context.scene.update()
         
-        addHookModifier(obj, group, empty, group)
+        addHookModifier(obj, group, o, group)
     
     def extend(self, empty):
         context = self.context
@@ -263,8 +260,7 @@ class Area(Item):
         _vert = bm.verts[-1]
         
         # find the Blender object for the empty that controls the last created area vertex
-        counter = obj["counter"]
-        prevEmpty = obj.modifiers[counter].object
+        prevEmpty = obj.modifiers[obj["last"]].object
         
         # If empty and prevEmpty belong to the same wall,
         # check if we need to create in-between verts for the area,
@@ -302,16 +298,14 @@ class Area(Item):
                     empties = _empties
                 # finally, create area verts for EMTPYs
                 for e in empties:
-                    counter +=1
-                    group = str(counter)
+                    group = e["g"]
                     vert = bm.verts.new(self.getLocation(e))
                     assignGroupToVerts(obj, bm.verts.layers.deform[0], group, vert)
                     _vert = vert
                     inbetweens.append((e, group))
                 
-        counter += 1
-        obj["counter"] = counter
-        group = str(counter)
+        group = empty["g"]
+        obj["last"] = group
         vert = bm.verts.new(self.getLocation(empty))
         assignGroupToVerts(obj, bm.verts.layers.deform[0], group, vert)
         
@@ -336,7 +330,10 @@ class Area(Item):
             bmesh.ops.reverse_faces(bm, faces = (face,))
             bm.to_mesh(obj.data)
         bm.free()
-        self.context.window_manager.prk.areaName = ""
+        # perform cleanup
+        del obj["last"]
+        self.context.scene.prk.areaName = ""
+        return obj
         
     def getLocation(self, empty):
         return empty.matrix_parent_inverse * empty.location
