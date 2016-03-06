@@ -1,5 +1,5 @@
 from base.item import Item
-from util.blender import createMeshObject, getBmesh, parent_set
+from util.blender import createMeshObject, getBmesh, parent_set, assignGroupToVerts, addHookModifier
 from util.inset import Corner
 
 class Extruded(Item):
@@ -22,9 +22,13 @@ class Extruded(Item):
         numVerts = len(profile)
         numControls = len(controls)
         for i in range(numControls):
-            corner = Corner(controls[i].location, controls[i-1].location, controls[(i+1)%numControls].location)
+            c = controls[i]
+            corner = Corner(c.location, controls[i-1].location, controls[(i+1)%numControls].location)
+            group = c["g"]
             for p in profile:
-                bm.verts.new(corner.inset(p[0], p[1]))
+                v = bm.verts.new(corner.inset(p[0], p[1]))
+                assignGroupToVerts(obj, layer, group, v)
+            addHookModifier(obj, group, c, group)
         
         # create faces
         bm.verts.ensure_lookup_table()
