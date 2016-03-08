@@ -81,13 +81,6 @@ class Context:
     # a registry to store data related to items
     items = {}
     
-    def __init__(self):
-        self.presetCollections = {}
-        
-    def loadPresetCollection(self, _id):
-        if not _id in self.presetCollections: return
-        self.presetCollections[_id]()
-    
     def register(self, Cls, GuiCls, *extraTypes):
         gui = GuiCls() if GuiCls else None
         self.items[Cls.type] = (Cls, gui)
@@ -102,28 +95,8 @@ class Context:
 pContext = Context()
 
 
-class FloorPlan():
-    """
-    A preset collection for a basic floor plan
-    """
-    
-    id = "base"
-    name = "basic floor plan"
-    description = "A basic floor plan"
-    
-    def __init__(self):
-        # clean up levels
-        prk = bpy.context.window_manager.prk
-        prk.levels.clear()
-        # reset levelIndex (i.e. currently active level)
-        prk.levelIndex = 0
-        level = prk.levels.add()
-        level.name = "Ground floor"
-        level.z = 0.
-
-
 def init():
-    pContext.presetCollections[FloorPlan.id] = FloorPlan
+    pass
 
 init()
 
