@@ -21,13 +21,11 @@ _checkPath()
 
 import base, gui, item, item.wall, item.window, item.room, export
 import item.area
-import metro
 if "bpy" in locals():
     import imp
     imp.reload(base)
     imp.reload(gui)
     imp.reload(item)
-    imp.reload(metro)
     imp.reload(item.wall)
     imp.reload(item.area)
     imp.reload(item.window)
