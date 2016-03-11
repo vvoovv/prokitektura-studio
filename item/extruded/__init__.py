@@ -28,7 +28,6 @@ class Extruded(Item):
             for p in profile:
                 v = bm.verts.new(corner.inset(p[0], p[1]))
                 assignGroupToVerts(obj, layer, group, v)
-            addHookModifier(obj, group, c, group)
         
         # create faces
         bm.verts.ensure_lookup_table()
@@ -58,6 +57,11 @@ class Extruded(Item):
         # one more update
         context.scene.update()
         
+        # add hook modifiers
+        for c in controls:
+            group = c["g"]
+            addHookModifier(obj, group, c, group)
+
     def getProfileData(self, profile):
         coords = []
         
