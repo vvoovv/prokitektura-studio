@@ -119,6 +119,11 @@ def hide_select(o, value):
     o.hide_select = value
 
 
+def modifier_apply(o, modifierName):
+    bpy.context.scene.objects.active = o
+    bpy.ops.object.modifier_apply(modifier=modifierName)
+
+
 def modifier_apply_all(o):
     bpy.context.scene.objects.active = o
     if o.data.users > 1:

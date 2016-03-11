@@ -73,6 +73,50 @@ def getModelParent(context):
     return parent
 
 
+def getLevelHeight(context, o):
+    """Returns the height of the levels where the Blender object <o> is located"""
+    prk = context.scene.prk
+    levelIndex = o.parent["level"]
+    for i,l in enumerate(prk.levels):
+        if l.index == levelIndex:
+            levelIndex = i
+            break
+    return prk.levelBundles[prk.levels[levelIndex].bundle].height
+
+
+def getNextLevelParent(context, o):
+    """Returns the parent for the level located on top of level of the Blender object <o>"""
+    # Optional levelOffset refers to GUI level index offset in the GUI list of levels
+    prk = context.scene.prk
+    index = o.parent["level"]
+    # check if <o> is located in the last level
+    if index == prk.levels[-1].index:
+        # return EMPTY controlling the total height of the building
+        result = getTotalHeightEmpty(context, o)
+    else:
+        # Iterate through the GUI list of levels to find the level
+        # on top of the level with the index equal to <index>
+        for i,l in enumerate(prk.levels):
+            if l.index == index:
+                break
+        index = prk.levels[i+1].index
+        for l in o.parent.parent.children:
+            if "level" in l and l["level"] == index:
+                result = l
+                break
+    return result
+
+
+def getTotalHeightEmpty(context, o):
+    """
+    Returns EMPTY object controlling the total height of the building
+    in one level of which the Blender object <o> is located
+    """ 
+    for l in o.parent.parent.children:
+        if "h" in l and l["h"]:
+            return l
+
+
 class Context:
     
     # a registry to store references to Blender operators responsible for specific categories

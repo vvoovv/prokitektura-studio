@@ -1,5 +1,5 @@
 import bpy, bmesh
-from base import zero
+from base import zero, zAxis, getLevelHeight, getNextLevelParent
 from base.item import Item
 from util.blender import createMeshObject, createEmptyObject, getBmesh, assignGroupToVerts, addHookModifier, parent_set
 from item.wall import getWallFromEmpty, Wall
@@ -178,6 +178,9 @@ class Area(Item):
         super().__init__(context, op)
         if empty:
             self.create(empty)
+    
+    def init(self, obj):
+        self.obj = obj
 
     def make(self, o, wall):
         o = wall.getCornerEmpty(o)
@@ -216,7 +219,7 @@ class Area(Item):
         # one more update
         context.scene.update()
         
-        # add hook modifiers
+        # add HOOK modifiers
         for e in empties:
             group = e["g"]
             addHookModifier(obj, group, e, group)
@@ -353,3 +356,26 @@ class Area(Item):
                 parent["level"] = 0
                 parent_set(modelParent, parent)
         parent_set(parent, obj)
+    
+    def getControls(self):
+        """
+        Returns an ordered list of EMPTYs controlling the vertices of the area
+        """
+        bm = getBmesh(self.obj)
+        bm.verts.ensure_lookup_table()
+        # All vertex groups are in the deform layer.
+        # There can be only one deform layer
+        layer = bm.verts.layers.deform[0]
+        # building a list of control EMPTYs
+        controls = []
+        start = bm.verts[0].link_loops[0]
+        loop = start
+        while True:
+            # getting vertex group to find the EMPTY controlling the vertex via a HOOK modifier
+            g = loop.vert[layer].keys()[0]
+            controls.append(self.obj.modifiers[g].object)
+            loop = loop.link_loop_next
+            if loop == start:
+                break
+        bm.free()
+        return controls

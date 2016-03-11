@@ -396,15 +396,15 @@ class Wall(Item):
         
         # perform parenting
         directParent = self.parent_set(obj, l0, r0, l1, r1)
-        # add a HOOK modifier controlling the wall height
-        addHookModifier(obj, "t",
-            self.getHeightEmpty() if (external or prk.levelIndex == len(prk.levels)-1) else self.getLevelParent(1),
-            "t"
-        )
         # without scene.update() parenting and hook modifiers will not work correctly
         # this step is probably optional here, however it's required in self.extend(..)
         context.scene.update()
         
+        # add a HOOK modifier controlling the wall height
+        addHookModifier(obj, "t",
+            self.getTotalHeightEmpty() if (external or prk.levelIndex == len(prk.levels)-1) else self.getLevelParent(1),
+            "t"
+        )
         # add hook modifiers
         addHookModifier(obj, "l"+group0, l0, "l"+group0)
         addHookModifier(obj, "r"+group0, r0, "r"+group0)
@@ -488,6 +488,13 @@ class Wall(Item):
         h = self.getHeight()
         counter = parent["counter"] + 1
         group = str(counter)
+        
+        # We have to apply the HOOK modifier that controls the level height,
+        # otherwise the height of the extension will not be equal to the height of
+        # the rest of the wall if the height was changed before
+        # Remember the Blender EMPTY object controlling the height of the level
+        hEmpty = mesh.modifiers["t"].object
+        modifier_apply(mesh, "t") 
         
         bm = getBmesh(mesh)
         # All vertex groups are in the deform layer.
@@ -579,7 +586,9 @@ class Wall(Item):
         # without scene.update() parenting and hook modifiers will not work correctly
         context.scene.update()
         
-        # add hook modifiers
+        # add HOOK modifier controlling the top vertices (i.e the height of the level)
+        addHookModifier(mesh, "t", hEmpty, "t")
+        # add HOOK modifiers
         addHookModifier(mesh, group1, e1, group1)
         addHookModifier(mesh, group2, e2, group2)
         
@@ -667,7 +676,7 @@ class Wall(Item):
         directParent = self.parent_set(obj, l0, r0, l1, r1)
         # add a HOOK modifier controlling the wall height
         addHookModifier(obj, "t",
-            self.getHeightEmpty() \
+            self.getTotalHeightEmpty() \
             if (
                 self.external or
                 (self.inheritLevelFrom and self.inheritLevelFrom.parent["level"]==prk.levels[-1].index) or
@@ -928,14 +937,11 @@ class Wall(Item):
     
     def getHeight(self):
         """Get height of the wall to be created"""
+        from base import getLevelHeight
         prk = self.context.scene.prk
         if not self.external:
             if self.inheritLevelFrom:
-                levelIndex = self.inheritLevelFrom.parent["level"]
-                for i,l in enumerate(prk.levels):
-                    if l.index == levelIndex:
-                        levelIndex = i
-                        break
+                return getLevelHeight(self.context, self.inheritLevelFrom)
             else:
                 levelIndex = prk.levelIndex
         return self.getTotalHeight() \
@@ -1421,7 +1427,7 @@ class Wall(Item):
             parent_set(parent, commonParent)
         return commonParent
     
-    def getHeightEmpty(self):
+    def getTotalHeightEmpty(self):
         """Get a Blender EMPTY that controls the height of the whole building"""
         parent = self.parent
         hEmpty = None

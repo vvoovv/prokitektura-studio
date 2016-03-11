@@ -1,6 +1,7 @@
 import bpy, bgl
-from base import pContextfrom . import getAreaObject
+from base import pContext, getItemfrom . import getAreaObject
 from item.wall import getWallFromEmpty
+from item.finish.flat import FinFlat
 
 def getAreaInstance(context, op, o=None):
     return pContext.items[context.scene.prk.areaType][0](context, op, o)
@@ -12,6 +13,17 @@ class AreaMake(bpy.types.Operator):
     bl_description = "Make an area surrounded by walls"
     bl_options = {"REGISTER", "UNDO"}
     
+    createWalls = bpy.props.BoolProperty(
+        name = "Create walls",
+        description = "Create internal surfaces for the walls surrounding the area",
+        default = True
+    )
+    assignUv = bpy.props.BoolProperty(
+        name = "Assign UV",
+        description = "Assign UV coordinates for the walls",
+        default = True
+    )
+    
     def execute(self, context):
         o = context.scene.objects.active
         wall = getWallFromEmpty(context, self, o)
@@ -19,10 +31,24 @@ class AreaMake(bpy.types.Operator):
             self.report({"ERROR"}, "To begin an area, select an EMPTY object belonging to the wall")
             return {'CANCELLED'}
         o = getAreaInstance(context, self).make(o, wall)
+        
+        if self.createWalls:
+            area = getItem(context, self, o)
+            finish = FinFlat(context, self)
+            finish.createFromArea(area)
+            if self.assignUv:
+                finish.assignUv()
+        
         bpy.ops.object.select_all(action="DESELECT")
         o.select = True
         context.scene.objects.active = o
         return {'FINISHED'}
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "createWalls")
+        if self.createWalls:
+            layout.prop(self, "assignUv")
     
 
 def draw_callback_area(op, context):
@@ -143,7 +169,6 @@ class ExtrudedAdd(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
     
     def execute(self, context):
-        from util.blender import getBmesh
         from item.extruded import Extruded
         
         o = context.scene.objects.active
@@ -154,22 +179,7 @@ class ExtrudedAdd(bpy.types.Operator):
             self.report({'ERROR'}, "To create an extruded object first select a profile object then a room object")
             return {'FINISHED'}
         
-        bm = getBmesh(o)
-        bm.verts.ensure_lookup_table()
-        # All vertex groups are in the deform layer.
-        # There can be only one deform layer
-        layer = bm.verts.layers.deform[0]
-        # building a list of control EMPTYs
-        controls = []
-        start = bm.verts[0].link_loops[0]
-        loop = start
-        while True:
-            # getting vertex group to find the EMPTY controlling the vertex via a HOOK modifier
-            g = loop.vert[layer].keys()[0]
-            controls.append(o.modifiers[g].object)
-            loop = loop.link_loop_next
-            if loop == start:
-                break
-        bm.free()
-        Extruded(context, self).create(controls, o.parent, profile)
+        area = getItem(context, self, o)
+        
+        Extruded(context, self).create(area.getControls(), o.parent, profile)
         return {'FINISHED'}
