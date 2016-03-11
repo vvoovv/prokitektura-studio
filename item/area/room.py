@@ -1,5 +1,5 @@
 from base import pContext
-from item.area import Area
+from . import Area
 
 
 class GuiRoom:

@@ -379,3 +379,6 @@ class Area(Item):
                 break
         bm.free()
         return controls
+
+
+import item.area.room

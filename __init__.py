@@ -19,7 +19,7 @@ def _checkPath():
         sys.path.append(path)
 _checkPath()
 
-import base, gui, item, item.wall, item.window, item.room, export
+import base, gui, item, item.wall, item.window, export
 import item.area
 if "bpy" in locals():
     import imp
@@ -29,7 +29,6 @@ if "bpy" in locals():
     imp.reload(item.wall)
     imp.reload(item.area)
     imp.reload(item.window)
-    imp.reload(item.room)
 
 import bpy
 
