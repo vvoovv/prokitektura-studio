@@ -57,6 +57,12 @@ def addBooleanModifier(obj, name, operand, operation="DIFFERENCE"):
     m.operation = operation
     m.object = operand
     return m
+
+
+def addSolidifyModifier(obj, name, **kwargs):
+    m = obj.modifiers.new(name=name, type='SOLIDIFY')
+    for k in kwargs:
+        setattr(m, k, kwargs[k])
     
 
 def createPolyCurve(name, location, points):

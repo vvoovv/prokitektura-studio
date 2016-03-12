@@ -1,7 +1,7 @@
 import bpy, bmesh
 from base.item import Item
 from base import zAxis, getLevelHeight, getNextLevelParent
-from util.blender import createMeshObject, getBmesh, assignGroupToVerts, addHookModifier, parent_set
+from util.blender import createMeshObject, getBmesh, assignGroupToVerts, addHookModifier, addSolidifyModifier, parent_set
 
 
 class FinFlat(Item):
@@ -57,6 +57,8 @@ class FinFlat(Item):
             addHookModifier(obj, group, c, group)
         # add a HOOK modifier controlling the top vertices
         addHookModifier(obj, "t", getNextLevelParent(context, obj), "t")
+        # add a SOLIDIFY modifier
+        addSolidifyModifier(obj, "solidify", thickness=0.001, offset=1.)
     
     def assignUv(self):
         pass
