@@ -116,6 +116,16 @@ def getTotalHeightEmpty(context, o):
         if "h" in l and l["h"]:
             return l
 
+ 
+def getReferencesForAttached(o):
+    """
+    Get reference EMPTYs for the wall segment to which <o> is attached.
+    """
+    variables = o.animation_data.drivers[0].driver.variables
+    # <variableIndex> depends on the role of <o> (active or passive)
+    variableIndex = 0 if len(variables)==3 else 5
+    return variables[variableIndex].targets[0].id, variables[variableIndex+1].targets[0].id
+
 
 class Context:
     

@@ -1,5 +1,5 @@
 import bmesh
-from base import pContext, getLevelLocation, getLevelZ, getModelParent, xAxis, yAxis, zAxis, zero
+from base import pContext, getLevelLocation, getLevelZ, getModelParent, xAxis, yAxis, zAxis, zero, getReferencesForAttached
 from base.item import Item
 from util.blender import *
 
@@ -915,11 +915,7 @@ class Wall(Item):
         """
         if not self.isAttached(o):
             return None
-        if o.hide:
-            # otherwise we'll get incorrect results for that case
-            o = self.getNeighbor(o)
-        variables = o.animation_data.drivers[0].driver.variables
-        return (variables[0].targets[0].id, variables[1].targets[0].id)
+        return getReferencesForAttached(o)
     
     def isClosed(self):
         return not "end" in self.mesh
