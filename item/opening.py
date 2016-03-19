@@ -5,18 +5,24 @@ from util.blender import addBooleanModifier, getLastOperator
 from item.wall import addTransformsVariable, addLocDiffVariable, addSinglePropVariable
 
 
+def getReferencesForOpening(o):
+    """
+    Get reference EMPTYs for the wall segment where the opening <o> is placed.
+    """
+    # obj.animation_data.drivers[0] is for rotation, ther order of <o1> and <o2> depends on <left>,
+    # that's why we use obj.animation_data.drivers[1]
+    variables = o.animation_data.drivers[1].driver.variables
+    return variables[0].targets[0].id, variables[1].targets[0].id
+
+
 class Opening(Item):
     
     allowZ = False
     
-    def init(self, obj):
-        if obj["t"] == self.type:
-            self.obj = obj
-            # obj.animation_data.drivers[0] is for rotation, ther order of <o1> and <o2> depends on <left>,
-            # that's why we use obj.animation_data.drivers[1]
-            variables = obj.animation_data.drivers[1].driver.variables
-            self.o1 = variables[0].targets[0].id
-            self.o2 = variables[1].targets[0].id
+    def init(self, o):
+        if o["t"] == self.type:
+            self.obj = o
+            self.o1, self.o2 = getReferencesForOpening(o)
             self.lookup()
     
     def create(self, obj, wall, o1, o2):

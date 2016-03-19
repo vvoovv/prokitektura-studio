@@ -1,6 +1,6 @@
 import bpy, bmesh
 from base.item import Item
-from base import zAxis, getLevelHeight, getNextLevelParent, getReferencesForAttached
+from base import zAxis, getItem, getLevelHeight, getNextLevelParent, getReferencesForAttached
 from util.blender import createMeshObject, getBmesh, assignGroupToVerts,\
     addHookModifier, addSolidifyModifier, addBooleanModifier, parent_set
 
@@ -68,8 +68,9 @@ class FinFlat(Item):
         The function treats insertions (e.g. windows, doors) relevant for the finish.
         Namely, a BOOLEAN modifier is created for each relevant opening.
         """
+        from item.opening import getReferencesForOpening
         # build a list of EMPTYs that defines each wall part that forms the finish
-        walls = []
+        walls = {}
         _c = controls[-1]
         for c in controls:
             # consider the wall part defined by <_c> and <c>
@@ -77,24 +78,24 @@ class FinFlat(Item):
             if _c["t"] == "wc":
                 if c["t"] == "wc":
                     # both <_c> and <c> are corner EMPTYs
-                    _o = _c
-                    o = c
+                    o1 = _c
+                    o2 = c
                 else:
                     # <c> is attached
                     # choose <o> depending on if <_c> and <c> belong to the same wall part
                     if _c["m"] == c["m"]:
-                        _o = _c
-                        o = c
+                        o1 = _c
+                        o2 = c
                     else:
-                        _o, o = getReferencesForAttached(c)
+                        o1, o2 = getReferencesForAttached(c)
             elif c["t"] == "wc":
                 # <_c> is attached
-                # choose <_o> depending on if <_c> and <c> belong to the same wall part
+                # choose <o1> depending on if <_c> and <c> belong to the same wall part
                 if _c["m"] == c["m"]:
-                    _o = _c
-                    o = c
+                    o1 = _c
+                    o2 = c
                 else:
-                    _o, o = getReferencesForAttached(_c)
+                    o1, o2 = getReferencesForAttached(_c)
             else:
                 # both <_c> and <c> are attached EMPTYs
                 _m_self = _c["m"]
@@ -103,28 +104,59 @@ class FinFlat(Item):
                 m_base = getReferencesForAttached(c)[0]["m"]
                 
                 if _m_self == m_self and (("p" in c and c["p"] == _c["g"]) or ("n" in c and c["n"] == _c["g"])):
-                    _o = _c
-                    o = c
+                    o1 = _c
+                    o2 = c
                 elif _m_base == m_base:
-                    _o, o = getReferencesForAttached(c)
+                    o1, o2 = getReferencesForAttached(c)
                 elif _m_base == m_self:
-                    _o, o = getReferencesForAttached(_c)
+                    o1, o2 = getReferencesForAttached(_c)
                 else: # _m_self == m_base
-                    _o, o = getReferencesForAttached(c)
+                    o1, o2 = getReferencesForAttached(c)
             
             # ensure that <o2> follows <o1>
-            if "n" in o and o["n"] == _o["g"]:
-                o = _o
-            walls.append(o)
+            if "n" in o2 and o2["n"] == o1["g"]:
+                o1, o2 = o2, o1
+            # <o2> defines the wall part where the finish part defined by <_c> and <c> is placed
+            # create an entry for <o2>
+            walls[o2["g"]] = [o1, o2, _c, c]
             _c = c
         
-        # iterate through immediate children of parent object of the finish
+        # iterate through immediate children of the parent Blender object of the finish
         for o in self.obj.parent.children:
             if "t" in o and (o["t"] == "window" or o["t"] == "door"):
-                # find envelop
-                for p in o.children:
-                    if "t" in p and p["t"]=="env":
-                        addBooleanModifier(self.obj, p.name, p)
+                o1, o2 = getReferencesForOpening(o)
+                # ensure that <o2> follows <o1>
+                if "n" in o2 and o2["n"] == o1["g"]:
+                    o2 = o1
+                # <o2> defines the wall part where the opening <o> is placed
+                # check if the finish also uses the wall part defined by <o2>
+                if o2["g"] in walls:
+                    # if necessary, calculate the position of the finish part along the wall part defined by <o2>
+                    # lazy calculation is used!
+                    e = walls[o2["g"]]
+                    if not isinstance(e[2], float):
+                        l1 = (e[2].location - e[0].location).length
+                        l2 = (e[3].location - e[0].location).length
+                        if l1 > l2:
+                            l1, l2 = l2, l1
+                        e[2] = l1
+                        e[3] = l2
+                    
+                    # get an instance of <Opening> class
+                    item = getItem(self.context, self.op, o)
+                    # calculate the position of the origin of the opening along the wall part defined by <o2>
+                    l1 = (e[1].location - e[0].location).dot(o.location - e[0].location) / (e[1].location - e[0].location).length
+                    addModifier = True
+                    # check if l1 is inside the finish part
+                    if not e[2] < l1 <e [3]:
+                        # calculate the position of the other end of the opening along the wall part defined by <o2>
+                        # the width of the opening:
+                        l2 = item.width.location.x
+                        l2 = (l1 - l2) if o1["l"] else (l1 + l2)
+                        if not e[2] < l2 <e [3]:
+                            addModifier = False
+                    if addModifier:
+                        addBooleanModifier(self.obj, o.name, item.envelope)
     
     def assignUv(self):
         pass

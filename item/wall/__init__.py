@@ -333,7 +333,7 @@ class Wall(Item):
         
         # create faces
         # bottom face
-        #bm.faces.new((v[0], v[3], v[2], v[1]))
+        bm.faces.new((v[0], v[3], v[2], v[1]))
         # top face
         bm.faces.new((v[4], v[5], v[6], v[7]))
         # left face
