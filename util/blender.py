@@ -40,6 +40,11 @@ def getBmesh(obj):
     return bm
 
 
+def setBmesh(obj, bm):
+    bm.to_mesh(obj.data)
+    bm.free()
+
+
 def addHookModifier(obj, name, hookObj, vertexGroup):
     m = obj.modifiers.new(name=name, type='HOOK')
     m.vertex_group = vertexGroup

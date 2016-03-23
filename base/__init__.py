@@ -127,6 +127,20 @@ def getReferencesForAttached(o):
     return variables[variableIndex].targets[0].id, variables[variableIndex+1].targets[0].id
 
 
+def getControlEmptyFromLoop(loop, layer, obj):
+    """
+    Get EMPTY controlling the vertex via a HOOK modifier given the related loop
+    
+    Args:
+        loop (bmesh.types.BMLoop): the loop related to the vertex in question
+        layer (bmesh.types.BMLayerItem): the related layer
+        obj: the Blender object containing the vertex in question
+    """
+    # the variable below is actually a group index
+    g = loop.vert[layer].keys()[0]
+    g = obj.vertex_groups[g].name
+    return obj.modifiers[g].object
+
 class Context:
     
     # a registry to store references to Blender operators responsible for specific categories

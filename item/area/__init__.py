@@ -1,5 +1,5 @@
 import bpy, bmesh
-from base import zero, zAxis, getLevelHeight, getNextLevelParent
+from base import zero, zAxis, getLevelHeight, getNextLevelParent, getControlEmptyFromLoop
 from base.item import Item
 from util.blender import createMeshObject, createEmptyObject, getBmesh, assignGroupToVerts, addHookModifier, parent_set
 from item.wall import getWallFromEmpty, Wall
@@ -371,9 +371,7 @@ class Area(Item):
         start = bm.verts[0].link_loops[0]
         loop = start
         while True:
-            # getting vertex group to find the EMPTY controlling the vertex via a HOOK modifier
-            g = loop.vert[layer].keys()[0]
-            controls.append(self.obj.modifiers[g].object)
+            controls.append( getControlEmptyFromLoop(loop, layer, self.obj) )
             loop = loop.link_loop_next
             if loop == start:
                 break

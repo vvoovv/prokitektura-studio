@@ -1,4 +1,6 @@
 
+defaultUvMap = "UVMap"
+
 
 class Item:
     

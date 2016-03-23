@@ -1,8 +1,8 @@
 import bpy, bmesh
-from base.item import Item
-from base import zAxis, getItem, getLevelHeight, getNextLevelParent, getReferencesForAttached
-from util.blender import createMeshObject, getBmesh, assignGroupToVerts,\
-    addHookModifier, addSolidifyModifier, addBooleanModifier, parent_set
+from base.item import Item, defaultUvMap
+from base import zAxis, getItem, getLevelHeight, getNextLevelParent, getReferencesForAttached, getControlEmptyFromLoop
+from util.blender import createMeshObject, getBmesh, setBmesh, assignGroupToVerts,\
+    addHookModifier, addSolidifyModifier, addBooleanModifier, parent_set, getVertsForVertexGroup
 
 
 class FinFlat(Item):
@@ -43,8 +43,7 @@ class FinFlat(Item):
             bm.faces.new((v1_b, v1_t, v2_t, v2_b))
             v1_b = v2_b
             v1_t = v2_t
-        bm.to_mesh(obj.data)
-        bm.free()
+        setBmesh(obj, bm)
         
         # without scene.update() hook modifiers will not work correctly
         context.scene.update()
@@ -158,5 +157,83 @@ class FinFlat(Item):
                     if addModifier:
                         addBooleanModifier(self.obj, o.name, item.envelope)
     
-    def assignUv(self):
-        pass
+    def assignUv(self, uvMap=None):
+        if not uvMap:
+            uvMap = defaultUvMap
+        o = self.obj
+        # create a new UV map if necessary
+        if not uvMap in o:
+            o.data.uv_textures.new(uvMap)
+        
+        bm = getBmesh(o)
+        # the inital loop
+        _loop = self.getInitialLoop(bm)
+        # find the open end if the finish sequence isn't a closed sequence
+        loop = _loop
+        vert = loop.vert
+        while True:
+            if len(vert.link_loops) == 1:
+                # found the open end
+                _loop = loop
+                break
+            loop = (vert.link_loops[1] if vert.link_loops[0] == loop else vert.link_loops[0]).link_loop_prev
+            vert = loop.vert
+            if loop == _loop:
+                break
+        
+        # finally, assign UV coordinates
+        layer = bm.loops.layers.uv[uvMap]
+        # the layer for vertex groups
+        groupLayer = bm.verts.layers.deform[0]
+        h = getLevelHeight(self.context, o)
+        offsetU = 0.
+        loop = _loop
+        vert = loop.vert
+        e1 = getControlEmptyFromLoop(loop, groupLayer, o)
+        while True:
+            # remember the base loop
+            _vert = vert
+            # remember, we are dealing with rectangles
+            # left bottom
+            loop[layer].uv = (offsetU, 0.)
+            # left top
+            loop.link_loop_prev[layer].uv = (offsetU, h)
+            # right bottom
+            loop = loop.link_loop_next
+            e2 = getControlEmptyFromLoop(loop, groupLayer, o)
+            offsetU += (e2.location - e1.location).length
+            loop[layer].uv = (offsetU, 0.)
+            # right top
+            loop.link_loop_next[layer].uv = (offsetU, h)
+            
+            # the step below isn't necessary, we already came to the required loop
+            #loop = loop.link_loop_next
+            vert = loop.vert
+            if len(vert.link_loops) == 1:
+                # reached the opposite end (end if the finish sequence isn't a closed sequence)
+                break
+            loop = vert.link_loops[1] if vert.link_loops[0] == loop else vert.link_loops[0]
+            if loop == _loop:
+                break
+            e1 = e2
+        setBmesh(o, bm)
+    
+    def getInitialLoop(self, bm):
+        # find the first occurrence of a number in the names of vertex groups
+        for g in self.obj.vertex_groups:
+            g = g.name
+            if g.isdigit():
+                break
+        # getting bottom <vb> and top <vt> vertices
+        vb, vt = getVertsForVertexGroup(self.obj, bm, g)
+        if vb.co.z > vt.co.z:
+            vb, vt = vt, vb
+        if len(vb.link_loops) == 1:
+            # <vb> and <vt> are located at an open end of the finish
+            loop1 = vb.link_loops[0]
+        else: # len(vb.link_loops) == 2
+            loop1, loop2 = vb.link_loops
+            # ensure that loop1 goes horizontally
+            if loop1.link_loop_next.vert == vt:
+                loop1 = loop2
+        return loop1
