@@ -1,18 +1,30 @@
 import bpy, bmesh
-from base.item import Item, defaultUvMap
-from base import zAxis, getItem, getLevelHeight, getNextLevelParent, getReferencesForAttached, getControlEmptyFromLoop
+from base.item import Item
+from base import defaultUvMap
+from base import pContext, zAxis, getItem, getLevelHeight, getNextLevelParent,\
+    getReferencesForAttached, getControlEmptyFromLoop
 from util.blender import createMeshObject, getBmesh, setBmesh, assignGroupToVerts,\
     addHookModifier, addSolidifyModifier, addBooleanModifier, parent_set, getVertsForVertexGroup
 
 
+class GuiFinish:
+    
+    def draw(self, context, layout):
+        layout.operator("prk.set_material_from_texture")
+
+
 class FinFlat(Item):
+    
+    type = "fin"
+    
+    name = "Finish"
     
     def createFromArea(self, area):
         context = self.context
         controls = area.getControls()
         
         obj = createMeshObject(area.obj.name+"_finish")
-        obj["t"] = "fin"
+        obj["t"] = self.type
         self.obj = obj
         
         bm = getBmesh(obj)
@@ -237,3 +249,6 @@ class FinFlat(Item):
             if loop1.link_loop_next.vert == vt:
                 loop1 = loop2
         return loop1
+    
+
+pContext.register(FinFlat, GuiFinish)

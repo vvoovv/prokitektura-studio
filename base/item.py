@@ -1,7 +1,4 @@
 
-defaultUvMap = "UVMap"
-
-
 class Item:
     
     def __init__(self, context, op):

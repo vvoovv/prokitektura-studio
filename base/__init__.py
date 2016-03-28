@@ -1,3 +1,4 @@
+import os
 import bpy
 from mathutils import Vector
 
@@ -7,6 +8,8 @@ zAxis = Vector((0., 0., 1.))
 
 zero = 0.000001
 zero2 = 0.0001
+
+defaultUvMap = "UVMap"
 
 
 def strf(value):
@@ -161,10 +164,19 @@ class Context:
             self.classes[_id] = cl
 
 pContext = Context()
-
+assetsPath = ""
+materialsPath = ""
 
 def init():
-    pass
+    global assetsPath, materialsPath
+    # find the path to the assets
+    # first, the path to the module's directory
+    p = os.path.dirname(os.path.realpath(__file__))
+    # second, the path to the whole distribution
+    p = os.path.join(p, os.pardir)
+    # finally, the path to the assets
+    assetsPath = os.path.join(p, "assets")
+    materialsPath = os.path.join(assetsPath, "materials.blend")
 
 init()
 

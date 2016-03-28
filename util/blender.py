@@ -1,5 +1,24 @@
 import bpy, bmesh
 
+
+def setMaterial(obj, material):
+    materials = obj.data.materials
+    if materials:
+        materials[0] = material
+    else:
+        materials.append(material)
+
+ 
+def loadMaterialFromFile(filepath, name):
+    """
+    Loads a material with the given <name> from the .blend with the given <filepath>
+    """
+    material = None
+    with bpy.data.libraries.load(filepath) as (data_from, data_to):
+        data_to.materials = [name]
+    return data_to.materials[0]
+
+
 def setCustomAttributes(obj, **kwargs):
     for key in kwargs:
         obj[key] = kwargs[key]
