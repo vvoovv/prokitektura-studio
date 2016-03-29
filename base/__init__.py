@@ -19,21 +19,6 @@ def strf(value):
     return str(value)
 
 
-def appendFromFile(context, filepath):
-    with bpy.data.libraries.load(filepath) as (data_from, data_to):
-        data_to.objects = data_from.objects
-    # append all objects and find their parent
-    parent = None
-    for obj in data_to.objects:
-        if not parent and not obj.parent:
-            parent = obj
-        bpy.context.scene.objects.link(obj)
-    # perform cleanup
-    bpy.ops.object.select_all(action="DESELECT")
-    # return the parent object
-    return parent
-
-
 def getLevelZ(context, levelIndex):
     prk = context.scene.prk
     z = 0.

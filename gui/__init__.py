@@ -1,7 +1,8 @@
 import bpy
 
 from base import pContext
-from base import getLevelLocation, appendFromFile
+from base import getLevelLocation
+from util.blender import appendFromFile
 
 from item.wall import setWidth, getWidth, setLength, getLength
 

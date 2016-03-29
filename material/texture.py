@@ -18,5 +18,9 @@ class Texture:
         m = loadMaterialFromFile(materialsPath, materialName)
         nodes = m.node_tree.nodes
         nodes["Image Texture"].image = bpy.data.images.load(kwargs["texturePath"])
+        n = nodes["Mapping"]
+        w, h = 3., 2.7
+        n.scale.x = 1/w
+        n.scale.y = 1/h
         nodes["UV Map"].uv_map = defaultUvMap
         return m

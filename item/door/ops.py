@@ -1,6 +1,6 @@
 import bpy
 
-from base import appendFromFile
+from util.blender import appendFromFile
 from . import Door
 from item.wall import getWallFromEmpty
 
