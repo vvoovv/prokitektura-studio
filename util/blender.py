@@ -23,6 +23,14 @@ def setMaterial(obj, material):
     else:
         materials.append(material)
 
+
+def getMaterial(context):
+    """
+    Returns the material for the active Blender object
+    """
+    o = context.scene.objects.active
+    return o.data.materials[0] if o.data.materials else None
+
  
 def loadMaterialFromFile(filepath, name):
     """

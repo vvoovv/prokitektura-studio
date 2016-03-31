@@ -129,6 +129,7 @@ def getControlEmptyFromLoop(loop, layer, obj):
     g = obj.vertex_groups[g].name
     return obj.modifiers[g].object
 
+
 class Context:
     
     # a registry to store references to Blender operators responsible for specific categories

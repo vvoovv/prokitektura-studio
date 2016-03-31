@@ -2,9 +2,11 @@ import bpy
 
 from base import pContext
 from base import getLevelLocation
-from util.blender import appendFromFile
+from util.blender import appendFromFile, getMaterial
 
 from item.wall import setWidth, getWidth, setLength, getLength
+
+from material.texture import setTextureWidth, getTextureWidth, setTextureHeight, getTextureHeight
 
 from .levels import PLAN_UL_levels, Level, LevelBundle, AddLevel
 
@@ -96,6 +98,24 @@ class PanelItem(bpy.types.Panel):
             guiEntry[1].draw(context, layout)
 
 
+class PanelMaterial(bpy.types.Panel):
+    bl_label = "Prokitektura"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "material"
+    
+    @classmethod
+    def poll(cls, context):
+        o = context.scene.objects.active
+        return o.type == "MESH" and "t" in o and o.data.materials and "t" in o.data.materials[0]
+    
+    def draw(self, context):
+        m = getMaterial(context)
+        
+        guiEntry = pContext.items[m["t"]]
+        guiEntry[1].draw(context, self.layout)
+
+
 class AddItem(bpy.types.Operator):
     bl_idname = "prk.add_item"
     bl_label = "Add an item..."
@@ -151,7 +171,7 @@ class PrkStudioProperties(bpy.types.PropertyGroup):
         description = "Width of a new wall",
         default = 0.3,
         min = 0.01,
-        max = 10,
+        max = 10.,
         step = 0.1,
         unit = "LENGTH"
     )
@@ -159,7 +179,7 @@ class PrkStudioProperties(bpy.types.PropertyGroup):
         name = "Segment width",
         description = "Width of a wall segment",
         min = 0.01,
-        max = 1000,
+        max = 1000.,
         step = 0.1,
         unit = "LENGTH",
         set = setWidth,
@@ -174,7 +194,7 @@ class PrkStudioProperties(bpy.types.PropertyGroup):
         name = "Segment length",
         description = "Length of a wall segment",
         min = 0.01,
-        max = 1000,
+        max = 1000.,
         step = 0.1,
         unit = "LENGTH",
         set = setLength,
@@ -197,7 +217,7 @@ class PrkStudioProperties(bpy.types.PropertyGroup):
         description = "Height of a new level",
         default = 2.7,
         min = 0.1,
-        max = 10,
+        max = 10.,
         step = 0.1,
         unit = "LENGTH"
     )
@@ -208,6 +228,28 @@ class PrkStudioProperties(bpy.types.PropertyGroup):
         max = 200,
         default = 1,
         description="Number of levels to be created. The levels will belong to the same level bundle."
+    )
+    textureWidth = bpy.props.FloatProperty(
+        name = "Texture width",
+        description = "Texture width in meters",
+        default = 1.,
+        min = 0.1,
+        max = 10.,
+        step = 0.1,
+        unit = "LENGTH",
+        set = setTextureWidth,
+        get = getTextureWidth
+    )
+    textureHeight = bpy.props.FloatProperty(
+        name = "Texture height",
+        description = "Texture height in meters",
+        default = 1.,
+        min = 0.1,
+        max = 10.,
+        step = 0.1,
+        unit = "LENGTH",
+        set = setTextureHeight,
+        get = getTextureHeight
     )
 
 
