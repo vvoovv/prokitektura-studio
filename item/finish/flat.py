@@ -1,7 +1,6 @@
 import bpy, bmesh
 from base.item import Item
-from base import defaultUvMap
-from base import pContext, zAxis, getItem, getLevelHeight, getNextLevelParent,\
+from base import defaultUvMap, pContext, zAxis, getItem, getLevelHeight, getNextLevelParent,\
     getReferencesForAttached, getControlEmptyFromLoop
 from util.blender import createMeshObject, getBmesh, setBmesh, assignGroupToVerts,\
     addHookModifier, addSolidifyModifier, addBooleanModifier, parent_set, getVertsForVertexGroup

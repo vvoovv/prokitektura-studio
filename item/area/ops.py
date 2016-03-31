@@ -26,14 +26,19 @@ class AreaMake(bpy.types.Operator):
     
     def execute(self, context):
         o = context.scene.objects.active
+        area = None
         wall = getWallFromEmpty(context, self, o)
         if not wall:
             self.report({"ERROR"}, "To begin an area, select an EMPTY object belonging to the wall")
             return {'CANCELLED'}
         o = getAreaInstance(context, self).make(o, wall)
+        if self.assignUv:
+            area = getItem(context, self, o)
+            area.assignUv()
         
         if self.createWalls:
-            area = getItem(context, self, o)
+            if not area:
+                area = getItem(context, self, o)
             finish = FinFlat(context, self)
             finish.createFromArea(area)
             if self.assignUv:

@@ -1,7 +1,8 @@
-import bpy, bmesh
-from base import zero, zAxis, getLevelHeight, getNextLevelParent, getControlEmptyFromLoop
+import bpy, bmesh, mathutils
+from base import zero, defaultUvMap, zAxis, getLevelHeight, getNextLevelParent, getControlEmptyFromLoop
 from base.item import Item
-from util.blender import createMeshObject, createEmptyObject, getBmesh, assignGroupToVerts, addHookModifier, parent_set
+from util.blender import createMeshObject, createEmptyObject, getBmesh, setBmesh,\
+    assignGroupToVerts, addHookModifier, parent_set
 from item.wall import getWallFromEmpty, Wall
 
 
@@ -377,6 +378,51 @@ class Area(Item):
                 break
         bm.free()
         return controls
+    
+    def assignUv(self, uvMap=None):
+        if not uvMap:
+            uvMap = defaultUvMap
+        o = self.obj
+        # create a new UV map if necessary
+        if not uvMap in o:
+            o.data.uv_textures.new(uvMap)
+        
+        bm = getBmesh(self.obj)
+        bm.verts.ensure_lookup_table()
+        layer = bm.loops.layers.uv[uvMap]
+        
+        # the initial loop
+        origin = bm.verts[0]
+        start = origin.link_loops[0]
+        # vector along the x-Axis of the area coordinate system
+        firstLoopVector = start.link_loop_next.vert.co - origin.co
+        firstLoopVector.normalize()
+        
+        # Calculate the transformation matrix from the level coordinate system to the area coordinate system,
+        # where the x-axis is oriented along the first loop of <bm>,
+        # y-axis lies in the plane of the area,
+        # z-axis is parallel to the z-axis of the level coordinate system
+        # translationMatrix is inversed translation matrix from the origin of the global coordinate system to the shape origin
+        translationMatrix = mathutils.Matrix.Translation(-origin.co)
+        # now calculate the inversed rotation matrix
+        # create a rotation matrix instance with default values (i.e. a unit matrix)
+        rotationMatrix = mathutils.Matrix()
+        # cosine and sine of the angle between <xAxis> and <firstLoopVector>
+        cos = firstLoopVector[0]
+        sin = firstLoopVector[1]
+        # rotation matrix from <firstLoopVector> to <xAxis> with -<zAxis> as the rotation axis
+        rotationMatrix[0][0:2] = cos, sin
+        rotationMatrix[1][0:2] = -sin, cos
+        # remember inversed(TRS) = inversed(S)*inversed(R)*inversed(T), so in our case:
+        matrix = rotationMatrix*translationMatrix
+        
+        loop = start
+        while True:
+            loop[layer].uv = (matrix*loop.vert.co)[:2]
+            loop = loop.link_loop_next
+            if loop == start:
+                break
+        setBmesh(o, bm)
 
 
 import item.area.room
