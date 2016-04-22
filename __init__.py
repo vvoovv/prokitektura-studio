@@ -19,14 +19,15 @@ def _checkPath():
         sys.path.append(path)
 _checkPath()
 
-import base, gui, item, material, item.wall, item.window, export
-import item.area
+import base, gui, item, material, workshop, export
+import item.wall, item.window, item.area
 if "bpy" in locals():
     import imp
     imp.reload(base)
     imp.reload(gui)
-    imp.reload(material)
     imp.reload(item)
+    imp.reload(material)
+    imp.reload(workshop)
     imp.reload(item.wall)
     imp.reload(item.area)
     imp.reload(item.window)
@@ -42,6 +43,7 @@ def register():
     gui.register()
     item.register()
     material.register()
+    workshop.register()
     export.register()
     # register keyboard shortcuts
     wm = bpy.context.window_manager
@@ -70,6 +72,7 @@ def unregister():
     gui.unregister()
     item.unregister()
     material.unregister()
+    workshop.unregister()
     export.unregister()
     # delete shortcuts
     global keymap

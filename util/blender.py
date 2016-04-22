@@ -46,8 +46,9 @@ def setCustomAttributes(obj, **kwargs):
         obj[key] = kwargs[key]
 
 
-def createMeshObject(name, location=(0., 0., 0.)):
-    mesh = bpy.data.meshes.new(name)
+def createMeshObject(name, location=(0., 0., 0.), mesh=None):
+    if not mesh:
+        mesh = bpy.data.meshes.new(name)
     obj = bpy.data.objects.new(name, mesh)
     obj.location = location
     bpy.context.scene.objects.link(obj)
