@@ -46,7 +46,7 @@ class WorkshopAddPane(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class WorkshopSetElement(bpy.types.Operator):
+class WorkshopAssignJunction(bpy.types.Operator):
     bl_idname = "prk.workshop_assign_junction"
     bl_label = "Assign junction"
     bl_description = "Assign junction for the selected vertices"

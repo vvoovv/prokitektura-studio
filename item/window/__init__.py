@@ -41,7 +41,7 @@ class Window(Opening):
         for v in verts:
             # id of the vertex
             vid = str(v[layer])
-            if not vid in _o and _o[vid] in bpy.data.objects:
+            if not (vid in _o and _o[vid] in bpy.data.objects):
                 continue
             # Blender object for the junction at the vertex
             j = bpy.data.objects[_o[vid]]

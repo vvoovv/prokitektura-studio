@@ -2,6 +2,14 @@ import mathutils, bpy
 from util.blender import createMeshObject, getBmesh, setBmesh, parent_set
 
 
+def getEdges(v):
+    edges = []
+    for e in v.link_edges:
+        _v = e.verts[1] if e.verts[0] == v else e.verts[0]
+        edges.append((_v.co - v.co).normalized())
+    return edges
+
+
 class Template:
     
     def __init__(self, o):
@@ -127,18 +135,24 @@ class Template:
         # copy vertex groups
         for g in _j.vertex_groups:
             j.vertex_groups.new("_" + g.name)
-        jw.prepare(j)
         context.scene.update()
         parent_set(parent, j)
         context.scene.update()
+        # select the Blender object <o>, so we can transform it, e.g. rotate it
         j.select = True
+        # temporarily deselect the active object
+        context.scene.objects.active.select = False
+        jw.prepare(j)
+        context.scene.objects.active.select = True
         bpy.ops.object.join()
-        j.select = False
     
     def getJunctionWrapper(self, v):
-        from .junction import LJunction, TJunction
+        from .junction import LJunction, TJunction, YJunction
         numEdges = len(v.link_edges)
+        edges = getEdges(v)
         if numEdges == 2:
-            return LJunction(v)
+            return LJunction(v, edges)
         elif numEdges == 3:
-            return TJunction(v)
+            # take the middle edge in the case of T-junction as the base one
+            middleEdge = TJunction.getMiddleEdge(edges)
+            return TJunction(v, middleEdge) if middleEdge else YJunction(v)
