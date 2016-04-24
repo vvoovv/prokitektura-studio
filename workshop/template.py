@@ -1,12 +1,12 @@
-import mathutils, bpy
+import mathutils, bpy, bmesh
 from util.blender import createMeshObject, getBmesh, setBmesh, parent_set
 
 
-def getEdges(v):
+def getEdges(v, layer):
     edges = []
     for e in v.link_edges:
         _v = e.verts[1] if e.verts[0] == v else e.verts[0]
-        edges.append((_v.co - v.co).normalized())
+        edges.append(( (_v.co - v.co).normalized(), str(_v[layer]) ))
     return edges
 
 
@@ -33,6 +33,7 @@ class Template:
         if not data:
             data.new("prk")
         self.bm = bm
+        self.layer = bm.verts.layers.int["prk"]
     
     def complete(self):
         setBmesh(self.o, self.bm)
@@ -43,7 +44,7 @@ class Template:
         """
         o = self.o
         counter = o["counter"]
-        layer = self.bm.verts.layers.int["prk"]
+        layer = self.layer
         for v in self.bm.verts:
             if v.select:
                 # set id (actually <prk> attribute) if necessary
@@ -128,6 +129,7 @@ class Template:
         jw = self.getJunctionWrapper(v)
         if not jw.validate(j):
             return
+        jw.vid = str(v[self.layer])
         # create a copy of <j> at the location of the vertex <v>
         loc = v.co
         _j = j
@@ -140,19 +142,65 @@ class Template:
         context.scene.update()
         # select the Blender object <o>, so we can transform it, e.g. rotate it
         j.select = True
-        # temporarily deselect the active object
-        context.scene.objects.active.select = False
         jw.prepare(j)
-        context.scene.objects.active.select = True
+        # <parent> is also the current Blender active object
+        parent.select = True
         bpy.ops.object.join()
+        parent.select = False
     
     def getJunctionWrapper(self, v):
         from .junction import LJunction, TJunction, YJunction
         numEdges = len(v.link_edges)
-        edges = getEdges(v)
+        edges = getEdges(v, self.layer)
         if numEdges == 2:
             return LJunction(v, edges)
         elif numEdges == 3:
             # take the middle edge in the case of T-junction as the base one
             middleEdge = TJunction.getMiddleEdge(edges)
-            return TJunction(v, middleEdge) if middleEdge else YJunction(v)
+            return TJunction(v, edges, middleEdge) if middleEdge else YJunction(v, edges)
+    
+    def bridgeJunctions(self, o):
+        bm = getBmesh(o)
+        layer = bm.verts.layers.deform[0]
+        # keep track of visited edges
+        edges = set()
+        for v in self.bm.verts:
+            for e in v.link_edges:
+                if e.index in edges:
+                    continue
+                vid1 = str(e.verts[0][self.layer])
+                vid2 = str(e.verts[1][self.layer])
+                groupIndices = set(( o.vertex_groups[vid1 + "_" +vid2].index, o.vertex_groups[vid2 + "_" +vid1].index ))
+                # for each vertex group index in <groupIndices> get a vertex
+                verts = {}
+                for _v in bm.verts:
+                    vert = None
+                    for i in groupIndices:
+                        if i in _v[layer]:
+                            vert = _v
+                            break
+                    if vert:
+                        verts[i] = vert
+                        groupIndices.remove(i)
+                # for each key in <verts> (the key is actually a vertex group index) get edges to bridge
+                edges = []
+                for i in verts:
+                    vert = verts[i]
+                    _v = vert
+                    # the last visited edge
+                    edge = None
+                    while True:
+                        for e in _v.link_edges:
+                            if e == edge:
+                                continue
+                            # a candidate for the next vertex
+                            _vn =  e.verts[1] if e.verts[0] == _v else e.verts[0]
+                            if i in _vn[layer]:
+                                _v = _vn
+                                edge = e
+                                edges.append(edge)
+                                break
+                        if _v == vert:
+                            break
+                bmesh.ops.bridge_loops(bm, edges = edges)
+        setBmesh(o, bm)

@@ -12,10 +12,16 @@ def is180degrees(cos):
     return abs(-1-cos) < zero2
 
 
+def setVertexGroupName(o, index, vid, _vid):
+    # vertices <v> and <_v> define an edge
+    o.vertex_groups[index].name = vid + "_" + _vid
+
+
 class Junction:
     
-    def __init__(self, v, baseEdge):
+    def __init__(self, v, edges, baseEdge):
         self.v = v
+        self.edges = edges
         self.baseEdge = baseEdge
     
     def validate(self, o):
@@ -58,7 +64,8 @@ class Junction:
                     loop = v.link_loops[0]
                     _v = (loop.link_loop_prev if i in loop.link_loop_next.vert[layer] else loop.link_loop_next).vert
                     edge = (v.co - _v.co).normalized()
-                    edges.append(edge)
+                    # store also the group index
+                    edges.append(( edge, i ))
                     # we found the vertex belonging to the group with the index <i>,
                     # we don't need to continue iteration through groupIndices
                     break
@@ -75,36 +82,46 @@ class Junction:
         """
         Prepare the Blender object <o> as a junction, e.g. rotate and shear it appropriately
         """
-        self.updateVertexGroupNames()
         # calculate rotation angle
-        dot = self.baseEdge.dot(self._baseEdge)
+        dot = self.baseEdge[0].dot(self._baseEdge[0])
         # check if <self.baseEdge> and <self._baseEdge> are already aligned
         if abs(1-dot) > zero2:
             angle = math.acos(dot)
-            if yAxis.dot( self._baseEdge.cross(self.baseEdge) ) < 0.:
+            if yAxis.dot( self._baseEdge[0].cross(self.baseEdge[0]) ) < 0.:
                 angle = -angle
             bpy.ops.transform.rotate(value = angle, axis=yAxis)
+        
+        self.updateVertexGroupNames(o)
     
-    def updateVertexGroupNames(self):
-        pass
+    def updateVertexGroupNames(self, o):
+        setVertexGroupName(o, self._baseEdge[1], self.vid, self.baseEdge[1])
 
 
 class LJunction(Junction):
     
     def __init__(self, v, edges):
         # take the first edge as the base one
-        super().__init__(v, edges[0])
+        super().__init__(v, edges, edges[0])
         # store the dot product to process Blender object later
-        self.cross = edges[0].cross(edges[1])
+        self.cross = edges[0][0].cross(edges[1][0])
     
     def validate(self, o):
         if not super().validate(o):
             return False
         # store the base edge for the Blender object <o> using the cross product of the edges
         edges = self._edges
-        cross = edges[0].cross(edges[1])
+        cross = edges[0][0].cross(edges[1][0])
         self._baseEdge = edges[0] if self.cross.dot(cross) > 0 else edges[1]
         return True
+    
+    def updateVertexGroupNames(self, o):
+        super().updateVertexGroupNames(o)
+        # update the name of the vertex group for the second edge of the Blender object <o>
+        edges = self.edges
+        edge2Index = 1 if edges[0] is self.baseEdge else 0
+        _edges = self._edges
+        _edge2Index = 1 if _edges[0] is self._baseEdge else 0
+        setVertexGroupName(o, _edges[_edge2Index][1], self.vid, edges[edge2Index][1])
 
 
 class TJunction(Junction):
@@ -119,12 +136,24 @@ class TJunction(Junction):
         self._baseEdge = middleEdge
         return True
     
+    def updateVertexGroupNames(self, o):
+        super().updateVertexGroupNames(o)
+        # update vertex group names for the other two edges of the Blender object <o>
+        edges = [e for e in self.edges if not e is self.baseEdge]
+        _edges = [e for e in self._edges if not e is self._baseEdge]
+        cross = self.baseEdge[0].cross(edges[0][0])
+        _cross = self._baseEdge[0].cross(_edges[0][0])
+        # chcl if the vectors <cross> and <_cross> point in the same direction
+        index = 0 if cross.dot(_cross) > 0 else 1
+        setVertexGroupName(o, _edges[0][1], self.vid, edges[index][1])
+        setVertexGroupName(o, _edges[1][1], self.vid, edges[1-index][1])
+    
     @staticmethod
     def getMiddleEdge(edges):
         # index of the middle part of the junction if it's of T-type
         middleIndex = -1
-        cos01 = edges[0].dot(edges[1])
-        cos02 = edges[0].dot(edges[2])
+        cos01 = edges[0][0].dot(edges[1][0])
+        cos02 = edges[0][0].dot(edges[2][0])
         if is90degrees(cos01):
             if is90degrees(cos02):
                 middleIndex = 0
