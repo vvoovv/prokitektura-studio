@@ -25,8 +25,7 @@ class Template:
     
     def setVid(self, v):
         """
-        Check if the vertex id (actually <prk> data layer) is set for the vertex <v>.
-        If not, set the vertex id
+        Set vertex id as a vertex group
         """
         o = self.o
         layer = self.layer
@@ -40,6 +39,8 @@ class Template:
     
     def getVid(self, v):
         """
+        Get vertex id from the related vertex group
+        
         Returns a string
         """
         groupIndex = v[self.layer].keys()[0]
@@ -77,7 +78,7 @@ class Template:
             minX = float("inf")
             minZ = float("inf")
             for v in f.verts:
-                # check if all vertices of the face <f> have vertex id (actually <prk> data layer) set
+                # check if all vertices of the face <f> have vertex id (actually the related vertex group) set
                 self.setVid(v)
                 
                 if v.co.x < minX:
@@ -103,7 +104,7 @@ class Template:
                 vid = self.getVid(v)
                 _vid = int(vid)
                 v = bm.verts.new(v.co - location)
-                # copy vertex ids (actually <prk> data layer) from the parent face
+                # copy vertex ids (actually the related vertex groups) from the parent face
                 assignGroupToVerts(o, layer, vid, v)
                 if _vid > maxVid:
                     maxVid = _vid
