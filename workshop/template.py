@@ -1,12 +1,12 @@
 import mathutils, bpy, bmesh
-from util.blender import createMeshObject, getBmesh, setBmesh, parent_set
+from util.blender import createMeshObject, getBmesh, setBmesh, parent_set, assignGroupToVerts
 
 
-def getEdges(v, layer):
+def getEdges(v, template):
     edges = []
     for e in v.link_edges:
         _v = e.verts[1] if e.verts[0] == v else e.verts[0]
-        edges.append(( (_v.co - v.co).normalized(), str(_v[layer]) ))
+        edges.append(( (_v.co - v.co).normalized(), template.getVid(_v) ))
     return edges
 
 
@@ -16,24 +16,34 @@ class Template:
         self.o = o
         p = o.parent
         self.p = p
-        # ensure <o> has the attribute <counter>
-        if "counter" not in o:
-            o["counter"] = 1
-        # ensure <p> has the attribute <counter>
-        if "counter" not in p:
-            p["counter"] = 1
-        # ensure <o> has the attribute <id>
-        if "id" not in o:
-            o["id"] =  p["counter"]
-            p["counter"] += 1
         
         bm = getBmesh(o)
-        # ensure <bm.verts> has a data layer
-        data = bm.verts.layers.int
-        if not data:
-            data.new("prk")
         self.bm = bm
-        self.layer = bm.verts.layers.int["prk"]
+        # create a layer for vertex groups if necessary
+        deform = bm.verts.layers.deform
+        self.layer = deform[0] if deform else deform.new()
+    
+    def setVid(self, v):
+        """
+        Check if the vertex id (actually <prk> data layer) is set for the vertex <v>.
+        If not, set the vertex id
+        """
+        o = self.o
+        layer = self.layer
+        # If the number of group vertices is greater than 1,
+        # it most likely means that the vertex groups were copied from the neighboring vertices
+        # during the loop cut or similar operation
+        if not v[layer] or len(v[layer])>1:
+            v[layer].clear()
+            assignGroupToVerts(o, layer, str(o["counter"]), v)
+            o["counter"] += 1
+    
+    def getVid(self, v):
+        """
+        Returns a string
+        """
+        groupIndex = v[self.layer].keys()[0]
+        return self.o.vertex_groups[groupIndex].name
     
     def complete(self):
         setBmesh(self.o, self.bm)
@@ -42,20 +52,12 @@ class Template:
         """
         Assign Blender object <j> as a junction for the selected vertices
         """
-        o = self.o
-        counter = o["counter"]
-        layer = self.layer
         for v in self.bm.verts:
             if v.select:
-                # set id (actually <prk> attribute) if necessary
-                if not v[layer]:
-                    v[layer] = counter
-                    counter += 1
+                self.setVid(v)
                 # get our vertex id under the variable <vid>
-                vid = v[layer]
-                o[str(vid)] = j.name
+                self.o[ self.getVid(v) ] = j.name
                 v.select = False
-        o["counter"] = counter
         return self
     
     def addPanes(self):
@@ -75,13 +77,15 @@ class Template:
             minX = float("inf")
             minZ = float("inf")
             for v in f.verts:
+                # check if all vertices of the face <f> have vertex id (actually <prk> data layer) set
+                self.setVid(v)
+                
                 if v.co.x < minX:
                     minX = v.co.x
                 if v.co.z < minZ:
                     minZ = v.co.z
             # create an object for the new pane
             location = mathutils.Vector((minX, 0., minZ))
-            counter += 1
             o = createMeshObject("T_Pane_" + str(parentId) + "_" + str(counter), self.o.location+location)
             o.show_wire = True
             o.show_all_edges = True
@@ -90,13 +94,24 @@ class Template:
             o["p"] = parentId
             o.parent = p
             bm = getBmesh(o)
+            # create a layer for vertex groups
+            layer = bm.verts.layers.deform.new()
             # create vertices for the new pane
             verts = []
+            maxVid = 0
             for v in f.verts:
+                vid = self.getVid(v)
+                _vid = int(vid)
                 v = bm.verts.new(v.co - location)
+                # copy vertex ids (actually <prk> data layer) from the parent face
+                assignGroupToVerts(o, layer, vid, v)
+                if _vid > maxVid:
+                    maxVid = _vid
                 verts.append(v)
             bm.faces.new(verts)
             setBmesh(o, bm)
+            o["counter"] = maxVid + 1
+            counter += 1
         p["counter"] = counter
         return self
     
@@ -129,7 +144,7 @@ class Template:
         jw = self.getJunctionWrapper(v)
         if not jw.validate(j):
             return
-        jw.vid = str(v[self.layer])
+        jw.vid = self.getVid(v)
         # create a copy of <j> at the location of the vertex <v>
         loc = v.co
         _j = j
@@ -151,7 +166,7 @@ class Template:
     def getJunctionWrapper(self, v):
         from .junction import LJunction, TJunction, YJunction
         numEdges = len(v.link_edges)
-        edges = getEdges(v, self.layer)
+        edges = getEdges(v, self)
         if numEdges == 2:
             return LJunction(v, edges)
         elif numEdges == 3:
@@ -168,8 +183,8 @@ class Template:
             for e in v.link_edges:
                 if e.index in edges:
                     continue
-                vid1 = str(e.verts[0][self.layer])
-                vid2 = str(e.verts[1][self.layer])
+                vid1 = self.getVid(e.verts[0])
+                vid2 = self.getVid(e.verts[1])
                 groupIndices = set(( o.vertex_groups[vid1 + "_" +vid2].index, o.vertex_groups[vid2 + "_" +vid1].index ))
                 # for each vertex group index in <groupIndices> get a vertex
                 verts = {}

@@ -16,15 +16,16 @@ class WorkshopStartWindow(bpy.types.Operator):
     
     def invoke(self, context, event):
         o = context.object
-        o.name = "Frame"
-        o.data.name = "Frame"
+        o.name = "T_Frame"
+        o.data.name = "T_Frame"
         o.location = (0., 0., 0.)
         o.show_wire = True
         o.show_all_edges = True
         o["id"] = 1
+        o["counter"] = 1
         parent = createEmptyObject("Window", (0., 0., 0.), True, empty_draw_type='PLAIN_AXES', empty_draw_size=0.05)
         o.parent = parent
-        parent["counter"] = 1
+        parent["counter"] = 2
         return {'FINISHED'}
 
 
@@ -37,7 +38,7 @@ class WorkshopAddPane(bpy.types.Operator):
     def invoke(self, context, event):
         # we work in the OBJECT mode
         bpy.ops.object.mode_set(mode='OBJECT')
-        t = Template(context.object, True)
+        t = Template(context.object)
         result = t.addPanes()
         if not result:
             self.report({'ERROR'}, "To add new panes select at least one face")

@@ -143,7 +143,7 @@ class TJunction(Junction):
         _edges = [e for e in self._edges if not e is self._baseEdge]
         cross = self.baseEdge[0].cross(edges[0][0])
         _cross = self._baseEdge[0].cross(_edges[0][0])
-        # chcl if the vectors <cross> and <_cross> point in the same direction
+        # check if the vectors <cross> and <_cross> point in the same direction
         index = 0 if cross.dot(_cross) > 0 else 1
         setVertexGroupName(o, _edges[0][1], self.vid, edges[index][1])
         setVertexGroupName(o, _edges[1][1], self.vid, edges[1-index][1])
