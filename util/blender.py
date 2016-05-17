@@ -153,6 +153,10 @@ def getVertsForVertexGroup(obj, bm, group):
     return verts
 
 
+def setVertexGroupName(o, groupIndex, name):
+    o.vertex_groups[groupIndex].name = name
+
+
 def parent_set(parent, *objects):
     for obj in objects:
         obj.parent = parent

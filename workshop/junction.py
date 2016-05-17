@@ -1,7 +1,7 @@
 import math
 import bpy
 from base import zero2
-from util.blender import getBmesh
+from util.blender import getBmesh, setVertexGroupName
 
 
 def is90degrees(cos):
@@ -9,12 +9,7 @@ def is90degrees(cos):
 
 
 def is180degrees(cos):
-    return abs(-1-cos) < zero2
-
-
-def setVertexGroupName(o, index, vid, _vid):
-    # vertices <v> and <_v> define an edge
-    o.vertex_groups[index].name = vid + "_" + _vid
+    return abs(cos+1) < zero2
 
 
 class Junction:
@@ -105,8 +100,8 @@ class Junction:
                 e.append(1.)
             else:
                 cos = baseVec.dot(e[0])
-                # check if the angle between the edge and the base edge is 180 degrees, i.e. cos == -1
-                if abs(cos + 1) < zero2:
+                # check if the angle between the edge and the base edge is 180 degrees
+                if is180degrees(cos):
                     e.append(-1.)
                 else:
                     if self.n.dot( baseVec.cross(e[0])) < 0.:
@@ -133,7 +128,8 @@ class Junction:
     
     def updateVertexGroupNames(self, o):
         for i in range(len(self.edges)):
-            setVertexGroupName(o, self._edges[i][1], self.vid, self.edges[i][1])
+            # vertices with vids <self.vid> and <self.edges[i][1]> define an edge
+            setVertexGroupName(o, self._edges[i][1], self.vid + "_" + self.edges[i][1])
 
 
 class LJunction(Junction):
