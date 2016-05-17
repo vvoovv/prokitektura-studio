@@ -6,7 +6,7 @@ def getEdges(v, template):
     edges = []
     for e in v.link_edges:
         _v = e.verts[1] if e.verts[0] == v else e.verts[0]
-        edges.append(( (_v.co - v.co).normalized(), template.getVid(_v) ))
+        edges.append([ (_v.co - v.co).normalized(), template.getVid(_v) ])
     return edges
 
 
@@ -116,7 +116,7 @@ class Template:
         p["counter"] = counter
         return self
     
-    def getParent(self):
+    def getTopParent(self):
         """
         Get the top level template, e.g. the outer frame for a window
         """
@@ -143,13 +143,15 @@ class Template:
         """
         # junction wrapper
         jw = self.getJunctionWrapper(v)
-        if not jw.validate(j):
+        if not jw.setBlenderObject(j):
             return
-        jw.vid = self.getVid(v)
+        vid = self.getVid(v)
+        jw.vid = vid
         # create a copy of <j> at the location of the vertex <v>
         loc = v.co
         _j = j
         j = createMeshObject(j.name, loc, _j.data)
+        self.scanVerts(j, vid)
         # copy vertex groups
         for g in _j.vertex_groups:
             j.vertex_groups.new("_" + g.name)
@@ -158,7 +160,8 @@ class Template:
         context.scene.update()
         # select the Blender object <o>, so we can transform it, e.g. rotate it
         j.select = True
-        jw.prepare(j)
+        jw.transform(j)
+        jw.updateVertexGroupNames(j)
         # <parent> is also the current Blender active object
         parent.select = True
         bpy.ops.object.join()
@@ -171,9 +174,9 @@ class Template:
         if numEdges == 2:
             return LJunction(v, edges)
         elif numEdges == 3:
-            # take the middle edge in the case of T-junction as the base one
-            middleEdge = TJunction.getMiddleEdge(edges)
-            return TJunction(v, edges, middleEdge) if middleEdge else YJunction(v, edges)
+            # consider, that we have a T-junction
+            jw = TJunction(v, edges)
+            return jw if jw.edges else YJunction(v, edges)
     
     def bridgeJunctions(self, o):
         bm = getBmesh(o)
@@ -220,3 +223,36 @@ class Template:
                             break
                 bmesh.ops.bridge_loops(bm, edges = edges)
         setBmesh(o, bm)
+    
+    def setParent(self, template):
+        """
+        Set parent template
+        """
+        self.childOffsets = {}
+        self.surfaces = {}
+    
+    def scanVerts(self, j, vid):
+        """
+        Scan vertices of the junction Blender object <j> to find ones belonging to particular vertex groups
+        
+        Args:
+            j: Blender object
+            vid (String): id of the template vertex for which <j> is to be set as a junction
+        """
+        return
+        for v in j.data.vertices:
+            for g in v.groups:
+                # group name
+                n = j.vertex_groups[g.group].name
+                if n == "c": # offset for a child template
+                    offsets = self.childOffsets
+                    if not vid in offsets:
+                        offsets[vid] = []
+                    offsets[vid].append(v.co)
+                elif n[0] == "s": # defines a surface
+                    surfaces = self.surfaces
+                    # index if the surface
+                    si = "0" if len(n) == 1 else n[1:]
+                    if not si in surfaces:
+                        surfaces[si] = []
+                    surfaces[si].append(0) # TODO

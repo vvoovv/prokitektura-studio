@@ -87,11 +87,12 @@ class WorkshopMakeWindow(bpy.types.Operator):
         return context.mode == 'OBJECT'
     
     def invoke(self, context, event):
-        self.makePanes(Template(context.object).getParent(), context)
+        self.makePanes(Template(context.object).getTopParent(), context)
         return {'FINISHED'}
     
     def makePanes(self, template, context):
         bpy.ops.object.select_all(action='DESELECT')
         Window(context, self).make(template)
         for t in template.getChildren():
+            t.setParent(template)
             self.makePanes(t, context)
