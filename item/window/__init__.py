@@ -45,7 +45,10 @@ class Window(Opening):
             t.setJunction(v, j, o, context)
             numVerts += 1
         if numVerts == len(verts):
-            t.bridgeJunctions(o)
+            bm = getBmesh(o)
+            t.bridgeJunctions(o, bm)
+            t.makeSurfaces(o, bm)
+            setBmesh(o, bm)
 
 
 pContext.register(Window, GuiWindow)

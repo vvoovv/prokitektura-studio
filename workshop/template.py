@@ -2,13 +2,110 @@ import mathutils, bpy, bmesh
 from util.blender import createMeshObject, getBmesh, setBmesh, parent_set, assignGroupToVerts
 
 
-def getEdges(v, template):
+def getEdges(v):
     edges = []
     for e in v.link_edges:
         _v = e.verts[1] if e.verts[0] == v else e.verts[0]
-        edges.append([ (_v.co - v.co).normalized(), template.getVid(_v) ])
+        edges.append([ (_v.co - v.co).normalized(), _v ])
     return edges
 
+
+def isPointBetweenVector(v, vec1, vec2):
+    cross1 = v.cross(vec1)
+    cross2 = v.cross(vec2)
+    # cross1 and cross2 must point in the opposite directions
+    # at least one angle must be less than 90 degrees
+    return cross1.dot(cross2) < 0. and (v.dot(vec1)>0. or v.dot(vec2)>0.)
+
+
+def getNeighborEdges(vec, edges, n):
+    baseVec = edges[0][0]
+    cos = baseVec.dot(vec)
+    firstCircleHalf = n.dot( baseVec.cross(vec)) > 0.
+    if firstCircleHalf:
+        for i in range(len(edges)):
+            e1, e2 = edges[i], edges[i+1]
+            if e2[3] < cos < e1[3]:
+                return e1, e2
+    else:
+        e1 = edges[0]
+        for i in range(len(edges)-1, -1, -1):
+            e2 = e1
+            e1 = edges[i]
+            if e1[3] < cos < e2[3]:
+                return e1, e2
+
+
+class SurfaceVerts:
+    
+    def __init__(self, o, bm, template):
+        self.template = template
+        self.numVerts = 0
+        # sverts stands for surface verts
+        self.sverts = {}
+        self.scanForVerts(o, bm)
+        # the current surface layer, sl stands for surface layer
+        self.sl = None
+    
+    def scanForVerts(self, o, bm):
+        """
+        Scan for all surface verts
+        """
+        sverts = self.sverts
+        groupIndices = []
+        for i,g in enumerate(o.vertex_groups):
+            name = g.name
+            if name[0] == "s":
+                # the name of the vertex group defines a separate surface layer
+                # sl stands for surface layer
+                sl = name[:name.find("_")]
+                sverts[sl] = {}
+                groupIndices.append(i)
+        if not groupIndices:
+            return
+        
+        layer = bm.verts.layers.deform[0]
+        for v in bm.verts:
+            for i in groupIndices:
+                if i in v[layer]:
+                    name = o.vertex_groups[i].name
+                    sl = name[:name.find("_")]
+                    vid = name[name.find("_")+1:]
+                    if not vid in sverts[sl]:
+                        sverts[sl][vid] = []
+                    sverts[sl][vid].append(v)
+                    self.numVerts += 1
+    
+    def pop(self, tv=None, vec1=None, vec2=None):
+        # tv stands for template vert
+        # If <templateVert>, <vec1> and <vec2> are given, that means pop a surface vert for <templateVert>
+        # located between vectors <vec1> and <vec2>
+        # If <templateVert>, <vec1> and <vec2> aren't given, a random surface vert is returned
+        sverts = self.sverts
+        if self.sl is None:
+            # set the current surface layer
+            self.sl = next(iter(sverts))
+        sl = self.sl
+        vid = self.template.getVid(tv) if tv else next(iter(sverts[sl]))
+        if len(sverts[sl][vid]) == 1:
+            v = sverts[sl][vid][0]
+            del sverts[sl][vid]
+            if not len(sverts[sl]):
+                del sverts[sl]
+                self.sl = None
+        else:
+            if tv:
+                # get surface verts for <vid>
+                for v in sverts[sl][vid]:
+                    if isPointBetweenVector(v.co-tv.co, vec1, vec2):
+                        # Stop iteration through surface verts for <vid>,
+                        # the required surface vert has been found
+                        break
+            else:
+                v = sverts[sl][vid].pop()
+        self.numVerts -= 1
+        return v, vid
+        
 
 class Template:
     
@@ -22,6 +119,8 @@ class Template:
         # create a layer for vertex groups if necessary
         deform = bm.verts.layers.deform
         self.layer = deform[0] if deform else deform.new()
+        
+        self.junctions = {}
     
     def setVid(self, v):
         """
@@ -154,23 +253,25 @@ class Template:
         self.scanVerts(j, vid)
         # copy vertex groups
         for g in _j.vertex_groups:
-            j.vertex_groups.new("_" + g.name)
+            j.vertex_groups.new(g.name)
         context.scene.update()
         parent_set(parent, j)
         context.scene.update()
         # select the Blender object <o>, so we can transform it, e.g. rotate it
         j.select = True
         jw.transform(j)
-        jw.updateVertexGroupNames(j)
+        jw.updateVertexGroupNames(j, self)
         # <parent> is also the current Blender active object
         parent.select = True
         bpy.ops.object.join()
         parent.select = False
+        # keep the junction wrapper <js> in the dictionary <self.junctions>
+        self.junctions[vid] = jw
     
     def getJunctionWrapper(self, v):
         from .junction import LJunction, TJunction, YJunction
         numEdges = len(v.link_edges)
-        edges = getEdges(v, self)
+        edges = getEdges(v)
         if numEdges == 2:
             return LJunction(v, edges)
         elif numEdges == 3:
@@ -178,8 +279,7 @@ class Template:
             jw = TJunction(v, edges)
             return jw if jw.edges else YJunction(v, edges)
     
-    def bridgeJunctions(self, o):
-        bm = getBmesh(o)
+    def bridgeJunctions(self, o, bm):
         layer = bm.verts.layers.deform[0]
         # keep track of visited edges
         edges = set()
@@ -222,7 +322,60 @@ class Template:
                         if _v == vert:
                             break
                 bmesh.ops.bridge_loops(bm, edges = edges)
-        setBmesh(o, bm)
+    
+    def makeSurfaces(self, o, bm):
+        # sverts stands for surface verts
+        sverts = SurfaceVerts(o, bm, self)
+        
+        if not sverts.numVerts:
+            return
+        
+        # now compose the surface out of the vertices <verts>
+        while sverts.numVerts:
+            v, vid = sverts.pop()
+            # junction wrapper for the surface vert <v>
+            j = self.junctions[vid]
+            # template vertex
+            tv = j.v
+            # ordered edges for the surface vert <v>
+            edges = j.edges
+            # find the pair of edges where the surface vert <v> is located
+            # unit vector from the junction origin to the location of the surface vert <v>
+            vec = (v.co - tv.co).normalized()
+            if len(edges) == 2:
+                # the simpliest case for only two edges, no need for any lookup
+                l = tv.link_loops[0]
+            else:
+                e1, e2 = getNeighborEdges(vec, edges, tv.normal)
+                # template vertices on the ends of the edges e1 and e2
+                tv1 = e1[1]
+                tv2 = e2[1]
+                # Get a BMLoop from tv.link_loops for which
+                # BMLoops coming through tv1 and tv2 are the next and previous BMLoops
+                for l in tv.link_loops:
+                    if (l.link_loop_next.vert == tv1 and l.link_loop_prev.vert == tv2) or \
+                        (l.link_loop_prev.vert == tv1 and l.link_loop_next.vert == tv2):
+                        break
+            # vertices of BMFace for the surface
+            verts = [v]
+            # perform a walk along BMFace containing BMLoop <l>
+            # the initial loop
+            loop = l
+            vec2 = (l.link_loop_next.vert.co - l.vert.co).normalized()
+            while True:
+                l = l.link_loop_next
+                if l == loop:
+                    break
+                vec1 = -vec2
+                vec2 = (l.link_loop_next.vert.co - l.vert.co).normalized()
+                v = sverts.pop(l.vert, vec1, vec2)[0]
+                if v:
+                    verts.append(v)
+            # finally, create BMFace for the surface
+            bm.faces.new(verts)
+            
+            
+            
     
     def setParent(self, template):
         """

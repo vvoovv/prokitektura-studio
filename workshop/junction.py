@@ -126,10 +126,18 @@ class Junction:
                 angle = -angle
             bpy.ops.transform.rotate(value = angle, axis=self.n)
     
-    def updateVertexGroupNames(self, o):
+    def updateVertexGroupNames(self, o, template):
+        # update the names of the vertex groups that define the ends of the junction <o>
         for i in range(len(self.edges)):
-            # vertices with vids <self.vid> and <self.edges[i][1]> define an edge
-            setVertexGroupName(o, self._edges[i][1], self.vid + "_" + self.edges[i][1])
+            _vid = template.getVid(self.edges[i][1])
+            # vertices with vids <self.vid> and <_vid> define an edge
+            setVertexGroupName(o, self._edges[i][1], self.vid + "_" + _vid)
+        # update the names of vertex groups that define a surface
+        for i,g in enumerate(o.vertex_groups):
+            if g.name[0] == "s":
+                # append <self.vid>
+                g.name += "_" + self.vid
+            
 
 
 class LJunction(Junction):
