@@ -106,6 +106,8 @@ class Junction:
                 else:
                     if self.n.dot( baseVec.cross(e[0])) < 0.:
                         e[2] = False
+                        # negate <cos> to have correct sorting
+                        cos = -cos
                     e.append(cos)
         edges.sort(key=itemgetter(2,3), reverse=True)
         return edges

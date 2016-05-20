@@ -10,15 +10,33 @@ def getEdges(v):
     return edges
 
 
-def isPointBetweenVector(v, vec1, vec2):
-    cross1 = v.cross(vec1)
-    cross2 = v.cross(vec2)
+def isVectorBetweenVectors(vec, vec1, vec2):
+    """
+    Checks if the vector <vec> lies between vectors <vec1> and <vec2>,
+    provided all three vectors share the same origin
+    """
+    cross1 = vec.cross(vec1)
+    cross2 = vec.cross(vec2)
     # cross1 and cross2 must point in the opposite directions
     # at least one angle must be less than 90 degrees
-    return cross1.dot(cross2) < 0. and (v.dot(vec1)>0. or v.dot(vec2)>0.)
+    return cross1.dot(cross2) < 0. and (vec.dot(vec1)>0. or vec.dot(vec2)>0.)
 
 
 def getNeighborEdges(vec, edges, n):
+    """
+    Returns two neighbor edges from <edges> for the vector <vec>
+    
+    Args:
+        vec (mathutils.Vector): A unit vector that starts at the template vertex 
+        edges (list): An ordered list of entries for edges of the template vertex.
+            The list starts from the entry for the base edge. Each entry of the list is
+            a list itself with 4 entries:
+            (0) Unit vector along the edge the starts at the template vertex
+            (1) Opposite vertex (BMvert) of the edge
+            (2) Boolean variable that defines in which circle half the edge is located
+            (3) Cosine of the angle between the edge and the base edge
+        n (mathutils.Vector): A normal to the plane where the template vertex and its <edges> are located
+    """
     baseVec = edges[0][0]
     cos = baseVec.dot(vec)
     firstCircleHalf = n.dot( baseVec.cross(vec)) > 0.
@@ -32,7 +50,8 @@ def getNeighborEdges(vec, edges, n):
         for i in range(len(edges)-1, -1, -1):
             e2 = e1
             e1 = edges[i]
-            if e1[3] < cos < e2[3]:
+            # remember <cos> is negated for firstCircleHalf == False
+            if e2[3] < cos < e1[3]:
                 return e1, e2
 
 
@@ -97,7 +116,7 @@ class SurfaceVerts:
             if tv:
                 # get surface verts for <vid>
                 for v in sverts[sl][vid]:
-                    if isPointBetweenVector(v.co-tv.co, vec1, vec2):
+                    if isVectorBetweenVectors(v.co-tv.co, vec1, vec2):
                         # Stop iteration through surface verts for <vid>,
                         # the required surface vert has been found
                         break
