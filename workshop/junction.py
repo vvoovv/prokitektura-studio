@@ -110,6 +110,13 @@ class Junction:
                         cos = -cos
                     e.append(cos)
         edges.sort(key=itemgetter(2,3), reverse=True)
+        # restore the true value of cosine for the second circle half
+        for i in range(len(edges)-1, -1, -1):
+            if edges[i][2]:
+                # reached the first circle half
+                break
+            else:
+                edges[i][3] = -edges[i][3]
         return edges
     
     def transform(self, o):

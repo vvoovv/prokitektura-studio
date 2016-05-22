@@ -51,7 +51,7 @@ def getNeighborEdges(vec, edges, n):
             e2 = e1
             e1 = edges[i]
             # remember <cos> is negated for firstCircleHalf == False
-            if e2[3] < cos < e1[3]:
+            if e1[3] < cos < e2[3]:
                 return e1, e2
 
 
@@ -116,10 +116,14 @@ class SurfaceVerts:
             if tv:
                 # get surface verts for <vid>
                 for v in sverts[sl][vid]:
-                    if isVectorBetweenVectors(v.co-tv.co, vec1, vec2):
+                    vec = v.co-tv.co
+                    # we need projectjon of <vec> onto XZ-plane
+                    vec.y = 0.
+                    if isVectorBetweenVectors(vec, vec1, vec2):
                         # Stop iteration through surface verts for <vid>,
                         # the required surface vert has been found
                         break
+                sverts[sl][vid].remove(v)
             else:
                 v = sverts[sl][vid].pop()
         self.numVerts -= 1
@@ -360,7 +364,10 @@ class Template:
             edges = j.edges
             # find the pair of edges where the surface vert <v> is located
             # unit vector from the junction origin to the location of the surface vert <v>
-            vec = (v.co - tv.co).normalized()
+            vec = v.co - tv.co
+            # we need projectjon of <vec> onto XZ-plane
+            vec.y = 0.
+            vec.normalize()
             if len(edges) == 2:
                 # the simpliest case for only two edges, no need for any lookup
                 l = tv.link_loops[0]
@@ -392,9 +399,6 @@ class Template:
                     verts.append(v)
             # finally, create BMFace for the surface
             bm.faces.new(verts)
-            
-            
-            
     
     def setParent(self, template):
         """
