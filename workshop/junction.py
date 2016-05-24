@@ -1,5 +1,5 @@
 import math
-import bpy
+import bpy, mathutils
 from base import zero2
 from util.blender import getBmesh, setVertexGroupName
 
@@ -122,7 +122,11 @@ class Junction:
     def transform(self, o):
         """
         Transform the Blender object <o> as a junction, e.g. rotate and shear it appropriately
+        
+        Returns:
+        The resulting matrix for the transformation
         """
+        matrix = None
         # calculate rotation angle
         # remember, the base edge has the index zero in the tuple
         baseEdge = self.edges[0][0]
@@ -134,6 +138,8 @@ class Junction:
             if self.n.dot( _baseEdge.cross(baseEdge) ) < 0.:
                 angle = -angle
             bpy.ops.transform.rotate(value = angle, axis=self.n)
+            matrix = mathutils.Matrix.Rotation(angle, 4, self.n)
+        return matrix
     
     def updateVertexGroupNames(self, o, template):
         # update the names of the vertex groups that define the ends of the junction <o>

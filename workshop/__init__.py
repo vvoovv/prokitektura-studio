@@ -14,6 +14,7 @@ class PanelWorkshop(bpy.types.Panel):
         layout.operator("prk.workshop_start_window")
         layout.operator("prk.workshop_add_pane")
         layout.operator("prk.workshop_assign_junction")
+        layout.operator("prk.workshop_set_child_offset")
         layout.operator("prk.workshop_make_window")
 
 

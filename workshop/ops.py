@@ -22,10 +22,10 @@ class WorkshopStartWindow(bpy.types.Operator):
         o.show_wire = True
         o.show_all_edges = True
         o["id"] = 1
-        o["counter"] = 1
         parent = createEmptyObject("Window", (0., 0., 0.), True, empty_draw_type='PLAIN_AXES', empty_draw_size=0.05)
         o.parent = parent
-        parent["counter"] = 2
+        parent["pane_counter"] = 2
+        parent["vert_counter"] = 1
         return {'FINISHED'}
 
 
@@ -94,5 +94,34 @@ class WorkshopMakeWindow(bpy.types.Operator):
         bpy.ops.object.select_all(action='DESELECT')
         Window(context, self).make(template)
         for t in template.getChildren():
-            t.setParent(template)
             self.makePanes(t, context)
+
+
+class WorkshopSetChildOffset(bpy.types.Operator):
+    bl_idname = "prk.workshop_set_child_offset"
+    bl_label = "Set offset for a child item"
+    bl_description = "Set offset for a child item"
+    bl_options = {"REGISTER", "UNDO"}
+    
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'EDIT_MESH'
+    
+    def invoke(self, context, event):
+        o = context.object
+        bpy.ops.object.mode_set(mode='OBJECT')
+        childOffset = createEmptyObject(
+            "offset_" + o.name,
+            context.scene.cursor_location - o.location,
+            False,
+            empty_draw_type='PLAIN_AXES',
+            empty_draw_size=0.01
+        )
+        childOffset["t"] = "offset"
+        childOffset.parent = o
+        
+        # make <childOffset> the active object
+        o.select = False
+        childOffset.select = True
+        context.scene.objects.active = childOffset
+        return {'FINISHED'}

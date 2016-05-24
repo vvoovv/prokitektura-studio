@@ -33,6 +33,9 @@ class Window(Opening):
         parent_set(p, o)
         context.scene.update()
         context.scene.objects.active = o
+        
+        t.prepareOffsets()
+        
         # iterate through the vertices of the template Blender object
         numVerts = 0
         for v in verts:

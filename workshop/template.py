@@ -56,7 +56,9 @@ def getNeighborEdges(vec, edges, n):
 
 
 class SurfaceVerts:
-    
+    """
+    A data structure to deal with vertices that constitute a surface
+    """
     def __init__(self, o, bm, template):
         self.template = template
         self.numVerts = 0
@@ -132,8 +134,9 @@ class SurfaceVerts:
 
 class Template:
     
-    def __init__(self, o):
+    def __init__(self, o, parentTemplate=None):
         self.o = o
+        self.parentTemplate = parentTemplate
         p = o.parent
         self.p = p
         
@@ -144,20 +147,21 @@ class Template:
         self.layer = deform[0] if deform else deform.new()
         
         self.junctions = {}
+        self.childOffsets = {}
     
     def setVid(self, v):
         """
         Set vertex id as a vertex group
         """
-        o = self.o
+        p = self.p
         layer = self.layer
         # If the number of group vertices is greater than 1,
         # it most likely means that the vertex groups were copied from the neighboring vertices
         # during the loop cut or similar operation
         if not v[layer] or len(v[layer])>1:
             v[layer].clear()
-            assignGroupToVerts(o, layer, str(o["counter"]), v)
-            o["counter"] += 1
+            assignGroupToVerts(self.o, layer, str(p["vert_counter"]), v)
+            p["vert_counter"] += 1
     
     def getVid(self, v):
         """
@@ -193,7 +197,7 @@ class Template:
             return None
         
         p = self.p
-        counter = p["counter"]
+        paneCounter = p["pane_counter"]
         parentId = self.o["id"]
         for f in faces:
             # find the coordinates of the leftmost and the lowest vertices if the <face>
@@ -209,10 +213,10 @@ class Template:
                     minZ = v.co.z
             # create an object for the new pane
             location = mathutils.Vector((minX, 0., minZ))
-            o = createMeshObject("T_Pane_" + str(parentId) + "_" + str(counter), self.o.location+location)
+            o = createMeshObject("T_Pane_" + str(parentId) + "_" + str(paneCounter), self.o.location+location)
             o.show_wire = True
             o.show_all_edges = True
-            o["id"] = counter
+            o["id"] = paneCounter
             # set id of the parent pane
             o["p"] = parentId
             o.parent = p
@@ -233,9 +237,9 @@ class Template:
                 verts.append(v)
             bm.faces.new(verts)
             setBmesh(o, bm)
-            o["counter"] = maxVid + 1
-            counter += 1
-        p["counter"] = counter
+            p["vert_counter"] = maxVid + 1
+            paneCounter += 1
+        p["pane_counter"] = paneCounter
         return self
     
     def getTopParent(self):
@@ -256,7 +260,7 @@ class Template:
         children = []
         for o in self.p.children:
             if "p" in o and o["p"] == self.o["id"]:
-                children.append(Template(o))
+                children.append(Template(o, self))
         return children
     
     def setJunction(self, v, j, parent, context):
@@ -269,11 +273,14 @@ class Template:
             return
         vid = self.getVid(v)
         jw.vid = vid
+        
         # create a copy of <j> at the location of the vertex <v>
-        loc = v.co
+        loc = v.co.copy()
+        offset = self.getOffset(vid)
+        if offset:
+            loc += offset
         _j = j
         j = createMeshObject(j.name, loc, _j.data)
-        self.scanVerts(j, vid)
         # copy vertex groups
         for g in _j.vertex_groups:
             j.vertex_groups.new(g.name)
@@ -282,7 +289,10 @@ class Template:
         context.scene.update()
         # select the Blender object <o>, so we can transform it, e.g. rotate it
         j.select = True
-        jw.transform(j)
+        matrix = jw.transform(j)
+        
+        self.scanOffsets(vid, _j, matrix)
+                
         jw.updateVertexGroupNames(j, self)
         # <parent> is also the current Blender active object
         parent.select = True
@@ -400,12 +410,68 @@ class Template:
             # finally, create BMFace for the surface
             bm.faces.new(verts)
     
-    def setParent(self, template):
-        """
-        Set parent template
-        """
-        self.childOffsets = {}
-        self.surfaces = {}
+    def getOffset(self, vid):
+        p = self.parentTemplate
+        return p.childOffsets[vid] if p and vid in p.childOffsets\
+            else (self.childOffsets[vid] if vid in self.childOffsets else None)
+    
+    def prepareOffsets(self):
+        p = self.parentTemplate
+        if not p:
+            # nothing to prepare
+            return
+        # iterate through the vertices of the template to find an outer vert presented in <p.childOffsets>
+        vert = None
+        for v in self.bm.verts:
+            vid = self.getVid(v)
+            if vid in p.childOffsets:
+                # check if the vertex <v> has an outer edge
+                for e in v.link_edges:
+                    if len(e.link_faces) == 1:
+                        vert = v
+                        break
+                if vert:
+                    break
+        if not vert:
+            # nothing to prepare
+            return
+        # walk along outer edges starting from <vert>
+        v = vert
+        # the last visited edge
+        _e = None
+        # the current offset
+        offset = p.childOffsets[vid]
+        while True:
+            # get the next outer vertex
+            for e in v.link_edges:
+                if len(e.link_faces) == 1 and e != _e:
+                    _v = v
+                    v = e.verts[1] if e.verts[0] == v else e.verts[0]
+                    break
+            if v == vert:
+                break
+            vid = self.getVid(v)
+            if vid in p.childOffsets:
+                # change the current offset
+                offset = p.childOffsets[vid]
+            else:
+                # calculate the offset and store it in <self.childOffsets>
+                # the unit vector along the edge define be <_v> and <v>
+                n = (v.co - _v.co).normalized()
+                offset = offset - offset.dot(n) * n
+                self.childOffsets[vid] = offset
+            _e = e
+    
+    def scanOffsets(self, vid, j, matrix):
+        # deal with offsets for child items
+        # scan Blender object <j> for Blender EMPTY objects that define an offset for a child item
+        for e in j.children:
+            if "t" in e and e["t"]=="offset":
+                offset = matrix * e.location if matrix else e.location.copy()
+                p = self.parentTemplate
+                if p and vid in p.childOffsets:
+                    offset += p.childOffsets[vid]
+                self.childOffsets[vid] = offset
     
     def scanVerts(self, j, vid):
         """
