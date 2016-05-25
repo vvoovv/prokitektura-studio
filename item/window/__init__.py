@@ -52,6 +52,8 @@ class Window(Opening):
             t.bridgeJunctions(o, bm)
             t.makeSurfaces(o, bm)
             setBmesh(o, bm)
+            # hide the template Blender object
+            t.o.hide = True
 
 
 pContext.register(Window, GuiWindow)

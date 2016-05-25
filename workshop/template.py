@@ -1,4 +1,5 @@
 import mathutils, bpy, bmesh
+from base import zero2
 from util.blender import createMeshObject, getBmesh, setBmesh, parent_set, assignGroupToVerts
 
 
@@ -439,27 +440,57 @@ class Template:
         v = vert
         # the last visited edge
         _e = None
+        # the unit vector along the current edge
+        _n = None
+        vids = []
         # the current offset
         offset = p.childOffsets[vid]
         while True:
+            # Walk along outer vertices until we encounter a vertex with vid in <p.childOffsets> OR
+            # the direction of the current edge is changed significantly
             # get the next outer vertex
             for e in v.link_edges:
                 if len(e.link_faces) == 1 and e != _e:
                     _v = v
                     v = e.verts[1] if e.verts[0] == v else e.verts[0]
                     break
-            if v == vert:
-                break
             vid = self.getVid(v)
             if vid in p.childOffsets:
-                # change the current offset
+                # set the current offset
                 offset = p.childOffsets[vid]
+                if vids:
+                    # assign offsets
+                    # the unit vector along the edge define be <_v> and <v>
+                    n = (v.co - _v.co).normalized()
+                    for vid in vids:
+                        self.childOffsets[vid] = offset - offset.dot(n) * n
+                    vids = []
+                _n = None
             else:
-                # calculate the offset and store it in <self.childOffsets>
                 # the unit vector along the edge define be <_v> and <v>
                 n = (v.co - _v.co).normalized()
-                offset = offset - offset.dot(n) * n
-                self.childOffsets[vid] = offset
+                if offset and not _n:
+                    offset = offset - offset.dot(n) * n
+                    self.childOffsets[vid] = offset
+                elif offset and _n:
+                    # the direction of the edge has been changed
+                    if abs(1.-_n.dot(n)) > zero2:
+                        offset = None
+                    else:
+                        self.childOffsets[vid] = offset
+                elif not offset and _n:
+                    # the direction of the edge has been changed
+                    if abs(1.-_n.dot(n)) > zero2:
+                        if vids:
+                            vids = []
+                    else:
+                        vids.append(vid)
+                elif not offset and not _n:
+                    vids.append(vid)
+                _n = n
+            # check if need to quit the cycle
+            if v == vert:
+                break
             _e = e
     
     def scanOffsets(self, vid, j, matrix):
@@ -471,7 +502,11 @@ class Template:
                 p = self.parentTemplate
                 if p and vid in p.childOffsets:
                     offset += p.childOffsets[vid]
-                self.childOffsets[vid] = offset
+                if vid in self.childOffsets:
+                    # <self.childOffsets[vid]> could be set in <self.prepareOffsets()>
+                    self.childOffsets[vid] += offset
+                else:
+                    self.childOffsets[vid] = offset
     
     def scanVerts(self, j, vid):
         """
