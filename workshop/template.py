@@ -1,6 +1,7 @@
 import mathutils, bpy, bmesh
 from base import zero2
 from util.blender import createMeshObject, getBmesh, setBmesh, parent_set, assignGroupToVerts
+from util.geometry import projectOntoPlane
 
 
 def getEdges(v):
@@ -100,9 +101,9 @@ class SurfaceVerts:
     
     def pop(self, tv=None, vec1=None, vec2=None):
         # tv stands for template vert
-        # If <templateVert>, <vec1> and <vec2> are given, that means pop a surface vert for <templateVert>
+        # If <templateVert>, <vec1> and <vec2> are given, that means pop a surface vert for <tv>
         # located between vectors <vec1> and <vec2>
-        # If <templateVert>, <vec1> and <vec2> aren't given, a random surface vert is returned
+        # If <tv>, <vec1> and <vec2> aren't given, a random surface vert is returned
         sverts = self.sverts
         if self.sl is None:
             # set the current surface layer
@@ -120,8 +121,8 @@ class SurfaceVerts:
                 # get surface verts for <vid>
                 for v in sverts[sl][vid]:
                     vec = v.co-tv.co
-                    # we need projectjon of <vec> onto XZ-plane
-                    vec.y = 0.
+                    # we need the projection of <vec> onto the plane defined by edges of the template vertex <v>
+                    vec = projectOntoPlane(vec, self.template.junctions[vid].n)
                     if isVectorBetweenVectors(vec, vec1, vec2):
                         # Stop iteration through surface verts for <vid>,
                         # the required surface vert has been found
@@ -374,10 +375,10 @@ class Template:
             # ordered edges for the surface vert <v>
             edges = j.edges
             # find the pair of edges where the surface vert <v> is located
-            # unit vector from the junction origin to the location of the surface vert <v>
+            # vector from the junction origin to the location of the surface vert <v>
             vec = v.co - tv.co
-            # we need projectjon of <vec> onto XZ-plane
-            vec.y = 0.
+            # we need the projection of <vec> onto the plane defined by edges of the template vertex <v>
+            vec = projectOntoPlane(vec, j.n)
             vec.normalize()
             if len(edges) == 2:
                 # the simpliest case for only two edges, no need for any lookup
@@ -417,6 +418,10 @@ class Template:
             else (self.childOffsets[vid] if vid in self.childOffsets else None)
     
     def prepareOffsets(self):
+        """
+        Calculate offsets for intermediary template vertices which don't
+        have an ancestor in the parent template
+        """
         p = self.parentTemplate
         if not p:
             # nothing to prepare
@@ -448,6 +453,7 @@ class Template:
         while True:
             # Walk along outer vertices until we encounter a vertex with vid in <p.childOffsets> OR
             # the direction of the current edge is changed significantly
+            
             # get the next outer vertex
             for e in v.link_edges:
                 if len(e.link_faces) == 1 and e != _e:
@@ -459,34 +465,42 @@ class Template:
                 # set the current offset
                 offset = p.childOffsets[vid]
                 if vids:
-                    # assign offsets
-                    # the unit vector along the edge define be <_v> and <v>
+                    # the unit vector along the edge defined by <_v> and <v>
                     n = (v.co - _v.co).normalized()
+                    # We need the projection of <offset> vector onto the plane
+                    # defined by the normal <n> to the plane
+                    _offset = projectOntoPlane(offset, n)
+                    # assign offsets to all outer vertices in <vids> list
                     for vid in vids:
-                        self.childOffsets[vid] = offset - offset.dot(n) * n
+                        self.childOffsets[vid] = _offset
                     vids = []
                 _n = None
             else:
-                # the unit vector along the edge define be <_v> and <v>
+                # the unit vector along the edge defined by <_v> and <v>
                 n = (v.co - _v.co).normalized()
-                if offset and not _n:
-                    offset = offset - offset.dot(n) * n
-                    self.childOffsets[vid] = offset
-                elif offset and _n:
-                    # the direction of the edge has been changed
-                    if abs(1.-_n.dot(n)) > zero2:
-                        offset = None
+                if offset:
+                    if _n:
+                        # check if the direction of the edge has been changed
+                        # if changed then reset the offset
+                        if abs(1.-_n.dot(n)) > zero2:
+                            offset = None
+                        else:
+                            self.childOffsets[vid] = offset
                     else:
+                        # We need the projection of <offset> vector onto the plane
+                        # defined by the normal <n> to the plane
+                        offset = projectOntoPlane(offset, n)
                         self.childOffsets[vid] = offset
-                elif not offset and _n:
-                    # the direction of the edge has been changed
-                    if abs(1.-_n.dot(n)) > zero2:
-                        if vids:
-                            vids = []
+                else:
+                    if _n:
+                        # the direction of the edge has been changed
+                        if abs(1.-_n.dot(n)) > zero2:
+                            if vids:
+                                vids = []
+                        else:
+                            vids.append(vid)
                     else:
                         vids.append(vid)
-                elif not offset and not _n:
-                    vids.append(vid)
                 _n = n
             # check if need to quit the cycle
             if v == vert:
@@ -494,8 +508,9 @@ class Template:
             _e = e
     
     def scanOffsets(self, vid, j, matrix):
-        # deal with offsets for child items
-        # scan Blender object <j> for Blender EMPTY objects that define an offset for a child item
+        """
+        Scan Blender object <j> for Blender EMPTY objects that define an offset for a child item
+        """
         for e in j.children:
             if "t" in e and e["t"]=="offset":
                 offset = matrix * e.location if matrix else e.location.copy()
