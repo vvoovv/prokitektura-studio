@@ -1,7 +1,7 @@
 import bpy, bmesh
 from base import pContext
 from item.opening import Opening
-from util.blender import createMeshObject, getBmesh, setBmesh, parent_set
+from util.blender import createMeshObject, createEmptyObject, getBmesh, setBmesh, parent_set
 
 
 class GuiWindow:
@@ -23,14 +23,26 @@ class Window(Opening):
     def make(self, t):
         verts = t.bm.verts
         context = self.context
-        # parent for the whole hierarchy of window Blender objects
-        p = t.p
         # template Blender object
         _o = t.o
-        # start a Blender object for the template, its name doesn't have the <T_> prefix
-        o = createMeshObject(_o.name[2:], _o.location)
+        # Create a Blender EMPTY object to serve as a parent for the window mesh;
+        # its name doesn't have <T_> prefix
+        name = _o.name[2:]
+        # <pt> stands for parent template
+        pt = t.parentTemplate
+        if pt:
+            p = createEmptyObject(name, _o.location-pt.o.location, False, empty_draw_type='PLAIN_AXES', empty_draw_size=0.01)
+        else:
+            # parent for the whole hierarchy of window Blender objects
+            p = t.p
+        t.meshParent = p
+        # start a Blender object for the template
+        o = createMeshObject(name + "_mesh")
         context.scene.update()
+        # perform parenting
         parent_set(p, o)
+        if t.parentTemplate:
+            parent_set(pt.meshParent, p)
         context.scene.update()
         context.scene.objects.active = o
         
