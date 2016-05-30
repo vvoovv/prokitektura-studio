@@ -59,20 +59,20 @@ class WorkshopAssignNode(bpy.types.Operator):
     
     def invoke(self, context, event):
         o = context.object
-        # check if have a selected element
+        # check if we have a selected element
         selected = context.selected_objects
-        j = None
+        n = None
         if len(selected) == 1:
             if o != selected[0]:
-                j = selected[0]
+                n = selected[0]
         elif len(selected) > 1:
-            j = selected[0] if o != selected[0] else selected[1]
-        if not j:
+            n = selected[0] if o != selected[0] else selected[1]
+        if not n:
             self.report({'ERROR'}, "To assign a node for the vertex select the Blender object for the node")
             return {'CANCELLED'}
         
         bpy.ops.object.mode_set(mode='OBJECT')
-        Template(o).assignNode(j).complete()
+        Template(o).assignNode(n).complete()
         return {'FINISHED'}
 
 

@@ -177,15 +177,15 @@ class Template:
     def complete(self):
         setBmesh(self.o, self.bm)
     
-    def assignNode(self, j):
+    def assignNode(self, n):
         """
-        Assign Blender object <j> as a node for the selected vertices
+        Assign Blender object <n> as a node for the selected vertices
         """
         for v in self.bm.verts:
             if v.select:
                 self.setVid(v)
                 # get our vertex id under the variable <vid>
-                self.o[ self.getVid(v) ] = j.name
+                self.o[ self.getVid(v) ] = n.name
                 v.select = False
         return self
     
@@ -265,43 +265,43 @@ class Template:
                 children.append(Template(o, self))
         return children
     
-    def setNode(self, v, j, parent, context):
+    def setNode(self, v, n, parent, context):
         """
-        Set a node Blender object <j> for the template vertex <v>
+        Set a node Blender object <n> for the template vertex <v>
         """
         # node wrapper
-        jw = self.getNodeWrapper(v)
-        if not jw.setBlenderObject(j):
+        nw = self.getNodeWrapper(v)
+        if not nw.setBlenderObject(n):
             return
         vid = self.getVid(v)
-        jw.vid = vid
+        nw.vid = vid
         
-        # create a copy of <j> at the location of the vertex <v>
+        # create a copy of <n> at the location of the vertex <v>
         loc = v.co.copy()
         offset = self.getOffset(vid)
         if offset:
             loc += offset
-        _j = j
-        j = createMeshObject(j.name, loc, _j.data)
+        _n = n
+        n = createMeshObject(n.name, loc, _n.data)
         # copy vertex groups
-        for g in _j.vertex_groups:
-            j.vertex_groups.new(g.name)
+        for g in _n.vertex_groups:
+            n.vertex_groups.new(g.name)
         context.scene.update()
-        parent_set(parent, j)
+        parent_set(parent, n)
         context.scene.update()
         # select the Blender object <o>, so we can transform it, e.g. rotate it
-        j.select = True
-        matrix = jw.transform(j)
+        n.select = True
+        matrix = nw.transform(n)
         
-        self.scanOffsets(vid, _j, matrix)
+        self.scanOffsets(vid, _n, matrix)
                 
-        jw.updateVertexGroupNames(j, self)
+        nw.updateVertexGroupNames(n, self)
         # <parent> is also the current Blender active object
         parent.select = True
         bpy.ops.object.join()
         parent.select = False
-        # keep the node wrapper <js> in the dictionary <self.nodes>
-        self.nodes[vid] = jw
+        # keep the node wrapper <nw> in the dictionary <self.nodes>
+        self.nodes[vid] = nw
     
     def getNodeWrapper(self, v):
         from workshop.node import LNode, TNode, YNode
@@ -311,8 +311,8 @@ class Template:
             return LNode(v, edges)
         elif numEdges == 3:
             # consider, that we have a T-node
-            jw = TNode(v, edges)
-            return jw if jw.edges else YNode(v, edges)
+            nw = TNode(v, edges)
+            return nw if nw.edges else YNode(v, edges)
     
     def bridgeNodes(self, o, bm):
         layer = bm.verts.layers.deform[0]
@@ -369,16 +369,16 @@ class Template:
         while sverts.numVerts:
             v, vid = sverts.pop()
             # node wrapper for the surface vert <v>
-            j = self.nodes[vid]
+            n = self.nodes[vid]
             # template vertex
-            tv = j.v
+            tv = n.v
             # ordered edges for the surface vert <v>
-            edges = j.edges
+            edges = n.edges
             # find the pair of edges where the surface vert <v> is located
             # vector from the node origin to the location of the surface vert <v>
             vec = v.co - tv.co
             # we need the projection of <vec> onto the plane defined by edges of the template vertex <v>
-            vec = projectOntoPlane(vec, j.n)
+            vec = projectOntoPlane(vec, n.n)
             vec.normalize()
             if len(edges) == 2:
                 # the simpliest case for only two edges, no need for any lookup
@@ -507,11 +507,11 @@ class Template:
                 break
             _e = e
     
-    def scanOffsets(self, vid, j, matrix):
+    def scanOffsets(self, vid, n, matrix):
         """
-        Scan Blender object <j> for Blender EMPTY objects that define an offset for a child item
+        Scan Blender object <n> for Blender EMPTY objects that define an offset for a child item
         """
-        for e in j.children:
+        for e in n.children:
             if "t" in e and e["t"]=="offset":
                 offset = matrix * e.location if matrix else e.location.copy()
                 p = self.parentTemplate
@@ -522,29 +522,3 @@ class Template:
                     self.childOffsets[vid] += offset
                 else:
                     self.childOffsets[vid] = offset
-    
-    def scanVerts(self, j, vid):
-        """
-        Scan vertices of the node Blender object <j> to find ones belonging to particular vertex groups
-        
-        Args:
-            j: Blender object
-            vid (String): id of the template vertex for which <j> is to be set as a node
-        """
-        return
-        for v in j.data.vertices:
-            for g in v.groups:
-                # group name
-                n = j.vertex_groups[g.group].name
-                if n == "c": # offset for a child template
-                    offsets = self.childOffsets
-                    if not vid in offsets:
-                        offsets[vid] = []
-                    offsets[vid].append(v.co)
-                elif n[0] == "s": # defines a surface
-                    surfaces = self.surfaces
-                    # index if the surface
-                    si = "0" if len(n) == 1 else n[1:]
-                    if not si in surfaces:
-                        surfaces[si] = []
-                    surfaces[si].append(0) # TODO
