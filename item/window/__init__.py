@@ -43,13 +43,13 @@ class Window(Opening):
             vid = t.getVid(v)
             if not (vid in _o and _o[vid] in bpy.data.objects):
                 continue
-            # Blender object for the junction at the vertex
+            # Blender object for the node at the vertex
             j = bpy.data.objects[_o[vid]]
-            t.setJunction(v, j, o, context)
+            t.setNode(v, j, o, context)
             numVerts += 1
         if numVerts == len(verts):
             bm = getBmesh(o)
-            t.bridgeJunctions(o, bm)
+            t.bridgeNodes(o, bm)
             t.makeSurfaces(o, bm)
             setBmesh(o, bm)
             # hide the template Blender object

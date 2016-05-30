@@ -47,10 +47,10 @@ class WorkshopAddPane(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class WorkshopAssignJunction(bpy.types.Operator):
-    bl_idname = "prk.workshop_assign_junction"
-    bl_label = "Assign junction"
-    bl_description = "Assign junction for the selected vertices"
+class WorkshopAssignNode(bpy.types.Operator):
+    bl_idname = "prk.workshop_assign_node"
+    bl_label = "Assign node"
+    bl_description = "Assign node for the selected vertices"
     bl_options = {"REGISTER", "UNDO"}
     
     @classmethod
@@ -68,11 +68,11 @@ class WorkshopAssignJunction(bpy.types.Operator):
         elif len(selected) > 1:
             j = selected[0] if o != selected[0] else selected[1]
         if not j:
-            self.report({'ERROR'}, "To assign a junction for the vertex select the Blender object for the junction")
+            self.report({'ERROR'}, "To assign a node for the vertex select the Blender object for the node")
             return {'CANCELLED'}
         
         bpy.ops.object.mode_set(mode='OBJECT')
-        Template(o).assignJunction(j).complete()
+        Template(o).assignNode(j).complete()
         return {'FINISHED'}
 
 

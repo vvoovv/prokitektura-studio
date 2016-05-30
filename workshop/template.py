@@ -122,7 +122,7 @@ class SurfaceVerts:
                 for v in sverts[sl][vid]:
                     vec = v.co-tv.co
                     # we need the projection of <vec> onto the plane defined by edges of the template vertex <v>
-                    vec = projectOntoPlane(vec, self.template.junctions[vid].n)
+                    vec = projectOntoPlane(vec, self.template.nodes[vid].n)
                     if isVectorBetweenVectors(vec, vec1, vec2):
                         # Stop iteration through surface verts for <vid>,
                         # the required surface vert has been found
@@ -148,7 +148,7 @@ class Template:
         deform = bm.verts.layers.deform
         self.layer = deform[0] if deform else deform.new()
         
-        self.junctions = {}
+        self.nodes = {}
         self.childOffsets = {}
     
     def setVid(self, v):
@@ -177,9 +177,9 @@ class Template:
     def complete(self):
         setBmesh(self.o, self.bm)
     
-    def assignJunction(self, j):
+    def assignNode(self, j):
         """
-        Assign Blender object <j> as a junction for the selected vertices
+        Assign Blender object <j> as a node for the selected vertices
         """
         for v in self.bm.verts:
             if v.select:
@@ -265,12 +265,12 @@ class Template:
                 children.append(Template(o, self))
         return children
     
-    def setJunction(self, v, j, parent, context):
+    def setNode(self, v, j, parent, context):
         """
-        Set a junction Blender object <j> for the template vertex <v>
+        Set a node Blender object <j> for the template vertex <v>
         """
-        # junction wrapper
-        jw = self.getJunctionWrapper(v)
+        # node wrapper
+        jw = self.getNodeWrapper(v)
         if not jw.setBlenderObject(j):
             return
         vid = self.getVid(v)
@@ -300,21 +300,21 @@ class Template:
         parent.select = True
         bpy.ops.object.join()
         parent.select = False
-        # keep the junction wrapper <js> in the dictionary <self.junctions>
-        self.junctions[vid] = jw
+        # keep the node wrapper <js> in the dictionary <self.nodes>
+        self.nodes[vid] = jw
     
-    def getJunctionWrapper(self, v):
-        from .junction import LJunction, TJunction, YJunction
+    def getNodeWrapper(self, v):
+        from workshop.node import LNode, TNode, YNode
         numEdges = len(v.link_edges)
         edges = getEdges(v)
         if numEdges == 2:
-            return LJunction(v, edges)
+            return LNode(v, edges)
         elif numEdges == 3:
-            # consider, that we have a T-junction
-            jw = TJunction(v, edges)
-            return jw if jw.edges else YJunction(v, edges)
+            # consider, that we have a T-node
+            jw = TNode(v, edges)
+            return jw if jw.edges else YNode(v, edges)
     
-    def bridgeJunctions(self, o, bm):
+    def bridgeNodes(self, o, bm):
         layer = bm.verts.layers.deform[0]
         # keep track of visited edges
         edges = set()
@@ -368,14 +368,14 @@ class Template:
         # now compose the surface out of the vertices <verts>
         while sverts.numVerts:
             v, vid = sverts.pop()
-            # junction wrapper for the surface vert <v>
-            j = self.junctions[vid]
+            # node wrapper for the surface vert <v>
+            j = self.nodes[vid]
             # template vertex
             tv = j.v
             # ordered edges for the surface vert <v>
             edges = j.edges
             # find the pair of edges where the surface vert <v> is located
-            # vector from the junction origin to the location of the surface vert <v>
+            # vector from the node origin to the location of the surface vert <v>
             vec = v.co - tv.co
             # we need the projection of <vec> onto the plane defined by edges of the template vertex <v>
             vec = projectOntoPlane(vec, j.n)
@@ -525,11 +525,11 @@ class Template:
     
     def scanVerts(self, j, vid):
         """
-        Scan vertices of the junction Blender object <j> to find ones belonging to particular vertex groups
+        Scan vertices of the node Blender object <j> to find ones belonging to particular vertex groups
         
         Args:
             j: Blender object
-            vid (String): id of the template vertex for which <j> is to be set as a junction
+            vid (String): id of the template vertex for which <j> is to be set as a node
         """
         return
         for v in j.data.vertices:

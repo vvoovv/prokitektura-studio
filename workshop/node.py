@@ -12,7 +12,7 @@ def is180degrees(cos):
     return abs(cos+1) < zero2
 
 
-class Junction:
+class Node:
     
     def __init__(self, v, edges):
         self.valid = True
@@ -23,8 +23,8 @@ class Junction:
     
     def setBlenderObject(self, o):
         """
-        The method checks if the Blender object <o> is valid as a junction and
-        assigns the junction edges for the Blender object <o>
+        The method checks if the Blender object <o> is valid as a node and
+        assigns the node edges for the Blender object <o>
         """
         # calculate the number of "edges" defined by vertex groups with the name starting from <e_>
         numEdges = 0
@@ -42,12 +42,12 @@ class Junction:
     
     def getEdges(self, o, groupIndices):
         """
-        Get vectors that define junction edges for the Blender object <o>
+        Get vectors that define node edges for the Blender object <o>
         
         Args:
-            o: Blender object acting as a junction
+            o: Blender object acting as a node
             groupIndices (list): A list of vertex group indices, each vertex group is assigned to vertices
-            forming an open end of the junction edge
+            forming an open end of the node edge
         """
         edges = []
         bm = getBmesh(o)
@@ -121,7 +121,7 @@ class Junction:
     
     def transform(self, o):
         """
-        Transform the Blender object <o> as a junction, e.g. rotate and shear it appropriately
+        Transform the Blender object <o> as a node, e.g. rotate and shear it appropriately
         
         Returns:
         The resulting matrix for the transformation
@@ -142,7 +142,7 @@ class Junction:
         return matrix
     
     def updateVertexGroupNames(self, o, template):
-        # update the names of the vertex groups that define the ends of the junction <o>
+        # update the names of the vertex groups that define the ends of the node <o>
         for i in range(len(self.edges)):
             _vid = template.getVid(self.edges[i][1])
             # vertices with vids <self.vid> and <_vid> define an edge
@@ -155,7 +155,7 @@ class Junction:
             
 
 
-class LJunction(Junction):
+class LNode(Node):
     
     def __init__(self, v, edges):
         super().__init__(v, edges)
@@ -169,10 +169,10 @@ class LJunction(Junction):
         return (edges[baseEdgeIndex], edges[1-baseEdgeIndex])
 
 
-class TJunction(Junction):
+class TNode(Node):
     
     def arrangeEdges(self, edges):
-        # index of the middle part of the junction if it's of T-type
+        # index of the middle part of the node if it's of T-type
         middleIndex = -1
         cos01 = edges[0][0].dot(edges[1][0])
         cos02 = edges[0][0].dot(edges[2][0])
@@ -192,13 +192,13 @@ class TJunction(Junction):
         return super().arrangeEdges(edges)
 
 
-class YJunction(Junction):
+class YNode(Node):
     pass
 
 
-class XJunction(Junction):
+class XNode(Node):
     pass
 
 
-class KJunction(Junction):
+class KNode(Node):
     pass
