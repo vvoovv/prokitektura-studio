@@ -1,7 +1,7 @@
 import bpy, bmesh
 from base import pContext
 from item.opening import Opening
-from util.blender import createMeshObject, createEmptyObject, getBmesh, setBmesh, parent_set
+from util.blender import createMeshObject, createEmptyObject, getBmesh, setBmesh, parent_set, addEdgeSplitModifier
 
 
 class GuiWindow:
@@ -20,7 +20,7 @@ class Window(Opening):
     
     allowZ = True
     
-    def make(self, t):
+    def make(self, t, **kwargs):
         verts = t.bm.verts
         context = self.context
         # template Blender object
@@ -64,6 +64,11 @@ class Window(Opening):
             t.bridgeNodes(o, bm)
             t.makeSurfaces(o, bm)
             setBmesh(o, bm)
+            
+            # apply Edge Split modifier
+            if kwargs["addEdgeSplitModifier"]:
+                addEdgeSplitModifier(o, o.name, use_edge_angle=False)
+            
             # hide the template Blender object
             t.o.hide = True
 

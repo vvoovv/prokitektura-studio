@@ -106,10 +106,18 @@ def addBooleanModifier(obj, name, operand, operation="DIFFERENCE"):
     return m
 
 
-def addSolidifyModifier(obj, name, **kwargs):
-    m = obj.modifiers.new(name=name, type='SOLIDIFY')
+def addModifier(modifierType, obj, name, **kwargs):
+    m = obj.modifiers.new(name=name, type=modifierType)
     for k in kwargs:
         setattr(m, k, kwargs[k])
+
+
+def addSolidifyModifier(obj, name, **kwargs):
+    addModifier('SOLIDIFY', obj, name, **kwargs)
+        
+
+def addEdgeSplitModifier(obj, name, **kwargs):
+    addModifier('EDGE_SPLIT', obj, name, **kwargs)
     
 
 def createPolyCurve(name, location, points):

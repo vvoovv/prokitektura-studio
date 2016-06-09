@@ -82,6 +82,12 @@ class WorkshopMakeWindow(bpy.types.Operator):
     bl_description = "Make a window out of the template"
     bl_options = {"REGISTER", "UNDO"}
     
+    addEdgeSplitModifier = bpy.props.BoolProperty(
+        name = "Add Edge Split modifier",
+        description = "Add Edge Split modifier to the Blender object of the window",
+        default = True
+    )
+    
     @classmethod
     def poll(cls, context):
         return context.mode == 'OBJECT'
@@ -92,7 +98,7 @@ class WorkshopMakeWindow(bpy.types.Operator):
     
     def makePanes(self, template, context):
         bpy.ops.object.select_all(action='DESELECT')
-        Window(context, self).make(template)
+        Window(context, self).make(template, addEdgeSplitModifier=self.addEdgeSplitModifier)
         for t in template.getChildren():
             self.makePanes(t, context)
 
