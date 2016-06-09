@@ -92,7 +92,7 @@ class WorkshopMakeWindow(bpy.types.Operator):
     def poll(cls, context):
         return context.mode == 'OBJECT'
     
-    def invoke(self, context, event):
+    def execute(self, context):
         self.makePanes(Template(context.object).getTopParent(), context)
         return {'FINISHED'}
     
