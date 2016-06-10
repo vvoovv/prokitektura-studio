@@ -61,13 +61,13 @@ class Window(Opening):
             numVerts += 1
         if numVerts == len(verts):
             bm = getBmesh(o)
-            t.bridgeNodes(o, bm)
+            t.bridgeNodes(o, bm, kwargs["dissolveEndEdges"])
             t.makeSurfaces(o, bm)
             setBmesh(o, bm)
             
             # apply Edge Split modifier
             if kwargs["addEdgeSplitModifier"]:
-                addEdgeSplitModifier(o, o.name, use_edge_angle=False)
+                addEdgeSplitModifier(o, o.name)
             
             # hide the template Blender object
             t.o.hide = True

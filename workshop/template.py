@@ -314,17 +314,18 @@ class Template:
             nw = TNode(v, edges)
             return nw if nw.edges else YNode(v, edges)
     
-    def bridgeNodes(self, o, bm):
+    def bridgeNodes(self, o, bm, dissolveEndEdges):
         layer = bm.verts.layers.deform[0]
         # keep track of visited edges
-        edges = set()
+        visitedEdges = set()
         for v in self.bm.verts:
             for e in v.link_edges:
-                if e.index in edges:
+                if e.index in visitedEdges:
                     continue
+                visitedEdges.add(e.index)
                 vid1 = self.getVid(e.verts[0])
                 vid2 = self.getVid(e.verts[1])
-                groupIndices = set(( o.vertex_groups[vid1 + "_" +vid2].index, o.vertex_groups[vid2 + "_" +vid1].index ))
+                groupIndices = set(( o.vertex_groups["e_" + vid1 + "_" +vid2].index, o.vertex_groups["e_" + vid2 + "_" +vid1].index ))
                 # for each vertex group index in <groupIndices> get a vertex
                 verts = {}
                 for _v in bm.verts:
@@ -336,9 +337,13 @@ class Template:
                     if vert:
                         verts[i] = vert
                         groupIndices.remove(i)
+                        if not groupIndices:
+                            break
                 # for each key in <verts> (the key is actually a vertex group index) get edges to bridge
                 edges = []
                 for i in verts:
+                    _edges = []
+                    edges.append(_edges)
                     vert = verts[i]
                     _v = vert
                     # the last visited edge
@@ -352,11 +357,14 @@ class Template:
                             if i in _vn[layer]:
                                 _v = _vn
                                 edge = e
-                                edges.append(edge)
+                                _edges.append(edge)
                                 break
                         if _v == vert:
                             break
-                bmesh.ops.bridge_loops(bm, edges = edges)
+                bmesh.ops.bridge_loops(bm, edges = edges[0] + edges[1])
+                if dissolveEndEdges:
+                    for _edges in edges:
+                        bmesh.ops.dissolve_edges(bm, edges=_edges, use_verts=True, use_face_split=False)
     
     def makeSurfaces(self, o, bm):
         # sverts stands for surface verts

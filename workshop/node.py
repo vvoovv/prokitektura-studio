@@ -146,7 +146,7 @@ class Node:
         for i in range(len(self.edges)):
             _vid = template.getVid(self.edges[i][1])
             # vertices with vids <self.vid> and <_vid> define an edge
-            setVertexGroupName(o, self._edges[i][1], self.vid + "_" + _vid)
+            setVertexGroupName(o, self._edges[i][1], "e_" + self.vid + "_" + _vid)
         # update the names of vertex groups that define a surface
         for i,g in enumerate(o.vertex_groups):
             if g.name[0] == "s":

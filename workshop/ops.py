@@ -88,6 +88,12 @@ class WorkshopMakeWindow(bpy.types.Operator):
         default = True
     )
     
+    dissolveEndEdges = bpy.props.BoolProperty(
+        name = "Dissolve end edges",
+        description = "Dissolve edges that define the ends of each node used to make the window",
+        default = True
+    )
+    
     @classmethod
     def poll(cls, context):
         return context.mode == 'OBJECT'
@@ -98,7 +104,11 @@ class WorkshopMakeWindow(bpy.types.Operator):
     
     def makePanes(self, template, context):
         bpy.ops.object.select_all(action='DESELECT')
-        Window(context, self).make(template, addEdgeSplitModifier=self.addEdgeSplitModifier)
+        Window(context, self).make(
+            template,
+            addEdgeSplitModifier = self.addEdgeSplitModifier,
+            dissolveEndEdges = self.dissolveEndEdges
+        )
         for t in template.getChildren():
             self.makePanes(t, context)
 
