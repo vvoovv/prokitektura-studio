@@ -316,55 +316,54 @@ class Template:
     
     def bridgeNodes(self, o, bm, dissolveEndEdges):
         layer = bm.verts.layers.deform[0]
-        # keep track of visited edges
-        visitedEdges = set()
-        for v in self.bm.verts:
-            for e in v.link_edges:
-                if e.index in visitedEdges:
-                    continue
-                visitedEdges.add(e.index)
-                vid1 = self.getVid(e.verts[0])
-                vid2 = self.getVid(e.verts[1])
-                groupIndices = set(( o.vertex_groups["e_" + vid1 + "_" +vid2].index, o.vertex_groups["e_" + vid2 + "_" +vid1].index ))
-                # for each vertex group index in <groupIndices> get a vertex
-                verts = {}
-                for _v in bm.verts:
-                    vert = None
-                    for i in groupIndices:
-                        if i in _v[layer]:
-                            vert = _v
+        # iterate through the edges of the template
+        for e in self.bm.edges:
+            vid1 = self.getVid(e.verts[0])
+            vid2 = self.getVid(e.verts[1])
+            groupIndices = set( (o.vertex_groups["e_" + vid1 + "_" +vid2].index, o.vertex_groups["e_" + vid2 + "_" +vid1].index) )
+            # We will bridge two edge loops composed of the vertices belonging to
+            # the vertex groups with the indices from <groupIndices>
+            
+            # For each vertex group index in <groupIndices> get a single vertex belonging
+            # to the related vertex group
+            verts = {}
+            for _v in bm.verts:
+                vert = None
+                for i in groupIndices:
+                    if i in _v[layer]:
+                        vert = _v
+                        break
+                if vert:
+                    verts[i] = vert
+                    groupIndices.remove(i)
+                    if not groupIndices:
+                        break
+            # for each key in <verts> (the key is actually a vertex group index) get edges to bridge
+            edges = []
+            for i in verts:
+                _edges = []
+                edges.append(_edges)
+                vert = verts[i]
+                _v = vert
+                # the last visited edge
+                edge = None
+                while True:
+                    for e in _v.link_edges:
+                        if e == edge:
+                            continue
+                        # a candidate for the next vertex
+                        _vn =  e.verts[1] if e.verts[0] == _v else e.verts[0]
+                        if i in _vn[layer]:
+                            _v = _vn
+                            edge = e
+                            _edges.append(edge)
                             break
-                    if vert:
-                        verts[i] = vert
-                        groupIndices.remove(i)
-                        if not groupIndices:
-                            break
-                # for each key in <verts> (the key is actually a vertex group index) get edges to bridge
-                edges = []
-                for i in verts:
-                    _edges = []
-                    edges.append(_edges)
-                    vert = verts[i]
-                    _v = vert
-                    # the last visited edge
-                    edge = None
-                    while True:
-                        for e in _v.link_edges:
-                            if e == edge:
-                                continue
-                            # a candidate for the next vertex
-                            _vn =  e.verts[1] if e.verts[0] == _v else e.verts[0]
-                            if i in _vn[layer]:
-                                _v = _vn
-                                edge = e
-                                _edges.append(edge)
-                                break
-                        if _v == vert:
-                            break
-                bmesh.ops.bridge_loops(bm, edges = edges[0] + edges[1])
-                if dissolveEndEdges:
-                    for _edges in edges:
-                        bmesh.ops.dissolve_edges(bm, edges=_edges, use_verts=True, use_face_split=False)
+                    if _v == vert:
+                        break
+            bmesh.ops.bridge_loops(bm, edges = edges[0] + edges[1])
+            if dissolveEndEdges:
+                for _edges in edges:
+                    bmesh.ops.dissolve_edges(bm, edges=_edges, use_verts=True, use_face_split=False)
     
     def makeSurfaces(self, o, bm):
         # sverts stands for surface verts

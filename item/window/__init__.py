@@ -65,7 +65,12 @@ class Window(Opening):
             t.makeSurfaces(o, bm)
             setBmesh(o, bm)
             
-            # apply Edge Split modifier
+            # remove unneeded vertex group
+            groups = [g for g in o.vertex_groups if g.name[0]=="e" or g.name[0]=="s"]
+            for g in groups:
+                o.vertex_groups.remove(g)
+            
+            # add Edge Split modifier
             if kwargs["addEdgeSplitModifier"]:
                 addEdgeSplitModifier(o, o.name)
             
