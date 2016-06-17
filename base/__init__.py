@@ -6,6 +6,8 @@ xAxis = Vector((1., 0., 0.))
 yAxis = Vector((0., 1., 0.))
 zAxis = Vector((0., 0., 1.))
 
+zeroVector = Vector((0., 0., 0.))
+
 zero = 0.000001
 zero2 = 0.0001
 

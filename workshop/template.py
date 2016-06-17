@@ -1,5 +1,5 @@
 import mathutils, bpy, bmesh
-from base import zero2
+from base import zero2, zeroVector
 from util.blender import createMeshObject, getBmesh, setBmesh, parent_set, assignGroupToVerts
 from util.geometry import projectOntoPlane
 
@@ -468,47 +468,44 @@ class Template:
                     v = e.verts[1] if e.verts[0] == v else e.verts[0]
                     break
             vid = self.getVid(v)
-            if vid in p.childOffsets:
+            
+            hasOffset = vid in p.childOffsets
+            
+            # the unit vector along the edge defined by <_v> and <v>
+            n = (v.co - _v.co).normalized()
+            
+            # check if the direction of the edge has been changed
+            directionChanged = _n and abs(1.-_n.dot(n)) > zero2
+            
+            if hasOffset:
                 # set the current offset
                 offset = p.childOffsets[vid]
+                _offset = None
+                if directionChanged:
+                    # set offset only sfor the last vid in <vids>
+                    vids = [vids[-1]]
                 if vids:
-                    # the unit vector along the edge defined by <_v> and <v>
-                    n = (v.co - _v.co).normalized()
                     # We need the projection of <offset> vector onto the plane
                     # defined by the normal <n> to the plane
                     _offset = projectOntoPlane(offset, n)
-                    # assign offsets to all outer vertices in <vids> list
+                    # set offset for all outer vertices in <vids> list
                     for vid in vids:
                         self.childOffsets[vid] = _offset
                     vids = []
                 _n = None
             else:
-                # the unit vector along the edge defined by <_v> and <v>
-                n = (v.co - _v.co).normalized()
-                if offset:
-                    if _n:
-                        # check if the direction of the edge has been changed
-                        # if changed then reset the offset
-                        if abs(1.-_n.dot(n)) > zero2:
-                            offset = None
-                        else:
-                            self.childOffsets[vid] = offset
-                    else:
+                if directionChanged:
+                    offset = None
+                    _n = None
+                else:
+                    if offset:
                         # We need the projection of <offset> vector onto the plane
                         # defined by the normal <n> to the plane
-                        offset = projectOntoPlane(offset, n)
-                        self.childOffsets[vid] = offset
-                else:
-                    if _n:
-                        # the direction of the edge has been changed
-                        if abs(1.-_n.dot(n)) > zero2:
-                            if vids:
-                                vids = []
-                        else:
-                            vids.append(vid)
+                        _offset = projectOntoPlane(offset, n)
+                        self.childOffsets[vid] = _offset
                     else:
                         vids.append(vid)
-                _n = n
+                    _n = n
             # check if need to quit the cycle
             if v == vert:
                 break
@@ -518,14 +515,14 @@ class Template:
         """
         Scan Blender object <n> for Blender EMPTY objects that define an offset for a child item
         """
+        # <self.childOffsets[vid]> could have been be set in <self.prepareOffsets()>
+        if not vid in self.childOffsets:
+            # set child offset to zero for correct operation
+            self.childOffsets[vid] = zeroVector.copy()
         for e in n.children:
             if "t" in e and e["t"]=="offset":
                 offset = matrix * e.location if matrix else e.location.copy()
                 p = self.parentTemplate
                 if p and vid in p.childOffsets:
                     offset += p.childOffsets[vid]
-                if vid in self.childOffsets:
-                    # <self.childOffsets[vid]> could be set in <self.prepareOffsets()>
-                    self.childOffsets[vid] += offset
-                else:
-                    self.childOffsets[vid] = offset
+                self.childOffsets[vid] += offset
