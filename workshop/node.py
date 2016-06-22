@@ -1,6 +1,6 @@
 import math
 import bpy, mathutils
-from base import zero2
+from base import zero2, zeroVector
 from util.blender import getBmesh, setVertexGroupName
 
 
@@ -13,6 +13,15 @@ def is180degrees(cos):
 
 
 class Node:
+    """
+    self.edges (list): An ordered list of entries for edges of the template vertex.
+        The list starts from the entry for the base edge. Each entry of the list is
+        a list itself with 4 entries:
+        (0) Unit vector along the edge the starts at the template vertex
+        (1) Opposite vertex (BMvert) of the edge
+        (2) Boolean variable that defines in which circle half the edge is located (not available for LNode)
+        (3) Cosine of the angle between the edge and the base edge (not available for LNode)
+    """
     
     def __init__(self, v, edges):
         self.valid = True
@@ -20,6 +29,16 @@ class Node:
         # normal to the vertex
         self.n = v.normal
         self.edges = self.arrangeEdges(edges)
+        
+        # Offsets are stored in the order as entries in <self.edges>
+        # The corner for an offset is defined by unit vectors from entries
+        # with the indices <i> and <i+1> in <self.edges>
+        offsets = []
+        # Set child offset to zero for correct operation for all pairs of edges
+        # sharing the same origin vertex <vid>
+        for _ in range(len(edges)):
+            offsets.append(zeroVector)
+        self.offsets = offsets
     
     def setBlenderObject(self, o):
         """
@@ -152,7 +171,42 @@ class Node:
             if g.name[0] == "s":
                 # append <self.vid>
                 g.name += "_" + self.vid
-            
+    
+    def getNeighborEdges(self, vec):
+        """
+        Returns two neighbor edges from <edges> for the vector <vec>
+        
+        Args:
+            vec (mathutils.Vector): A vector that starts at the template vertex 
+        """
+        # get the normalized version of <vec>
+        vec = vec.normalized()
+        edges = self.edges
+        # normal to the plane where the template vertex and its <edges> are located
+        n = self.v.normal
+        
+        baseVec = edges[0][0]
+        cos = baseVec.dot(vec)
+        firstCircleHalf = n.dot( baseVec.cross(vec)) > 0.
+        if firstCircleHalf:
+            for i in range(len(edges)):
+                e1, e2 = edges[i], edges[i+1]
+                if e2[3] < cos < e1[3]:
+                    return e1, e2
+        else:
+            e1 = edges[0]
+            for i in range(len(edges)-1, -1, -1):
+                e2 = e1
+                e1 = edges[i]
+                # remember <cos> is negated for firstCircleHalf == False
+                if e1[3] < cos < e2[3]:
+                    return e1, e2
+    
+    def getEdgeIndex(self, edge):
+        # edge ins normalized
+        for i, e in enumerate(self.edges):
+            if abs( 1.-edge.dot(e) ) < zero2:
+                return i
 
 
 class LNode(Node):

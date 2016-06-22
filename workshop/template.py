@@ -1,7 +1,7 @@
 import mathutils, bpy, bmesh
 from base import zero2, zeroVector
 from util.blender import createMeshObject, getBmesh, setBmesh, parent_set, assignGroupToVerts
-from util.geometry import projectOntoPlane
+from util.geometry import projectOntoPlane, isVectorBetweenVectors
 
 
 def getEdges(v):
@@ -10,51 +10,6 @@ def getEdges(v):
         _v = e.verts[1] if e.verts[0] == v else e.verts[0]
         edges.append([ (_v.co - v.co).normalized(), _v ])
     return edges
-
-
-def isVectorBetweenVectors(vec, vec1, vec2):
-    """
-    Checks if the vector <vec> lies between vectors <vec1> and <vec2>,
-    provided all three vectors share the same origin
-    """
-    cross1 = vec.cross(vec1)
-    cross2 = vec.cross(vec2)
-    # cross1 and cross2 must point in the opposite directions
-    # at least one angle must be less than 90 degrees
-    return cross1.dot(cross2) < 0. and (vec.dot(vec1)>0. or vec.dot(vec2)>0.)
-
-
-def getNeighborEdges(vec, edges, n):
-    """
-    Returns two neighbor edges from <edges> for the vector <vec>
-    
-    Args:
-        vec (mathutils.Vector): A unit vector that starts at the template vertex 
-        edges (list): An ordered list of entries for edges of the template vertex.
-            The list starts from the entry for the base edge. Each entry of the list is
-            a list itself with 4 entries:
-            (0) Unit vector along the edge the starts at the template vertex
-            (1) Opposite vertex (BMvert) of the edge
-            (2) Boolean variable that defines in which circle half the edge is located
-            (3) Cosine of the angle between the edge and the base edge
-        n (mathutils.Vector): A normal to the plane where the template vertex and its <edges> are located
-    """
-    baseVec = edges[0][0]
-    cos = baseVec.dot(vec)
-    firstCircleHalf = n.dot( baseVec.cross(vec)) > 0.
-    if firstCircleHalf:
-        for i in range(len(edges)):
-            e1, e2 = edges[i], edges[i+1]
-            if e2[3] < cos < e1[3]:
-                return e1, e2
-    else:
-        e1 = edges[0]
-        for i in range(len(edges)-1, -1, -1):
-            e2 = e1
-            e1 = edges[i]
-            # remember <cos> is negated for firstCircleHalf == False
-            if e1[3] < cos < e2[3]:
-                return e1, e2
 
 
 class SurfaceVerts:
@@ -132,7 +87,28 @@ class SurfaceVerts:
                 v = sverts[sl][vid].pop()
         self.numVerts -= 1
         return v, vid
-        
+    
+
+class ChildOffsets:
+    """
+    A wrapper class to deal with offsets for child items
+    """
+    def __init__(self, nodes):
+        self.nodes = nodes
+    
+    def get(self, vid, edge, normalized=False):
+        if not normalized:
+            edge = edge.normalized()
+        node = self.nodes[vid]
+        index = node.getEdgeIndex(edge)
+        return node.offsets[index]
+    
+    def set(self, vid, edge, offset, normalized=False):
+        if not normalized:
+            edge = edge.normalized()
+        node = self.nodes[vid]
+        index = node.getEdgeIndex(edge)
+        node.offsets[index] = offset
 
 class Template:
     
@@ -149,7 +125,7 @@ class Template:
         self.layer = deform[0] if deform else deform.new()
         
         self.nodes = {}
-        self.childOffsets = {}
+        self.childOffsets = ChildOffsets(self.nodes)
     
     def setVid(self, v):
         """
@@ -386,12 +362,11 @@ class Template:
             vec = v.co - tv.co
             # we need the projection of <vec> onto the plane defined by edges of the template vertex <v>
             vec = projectOntoPlane(vec, n.n)
-            vec.normalize()
             if len(edges) == 2:
                 # the simpliest case for only two edges, no need for any lookup
                 l = tv.link_loops[0]
             else:
-                e1, e2 = getNeighborEdges(vec, edges, tv.normal)
+                e1, e2 = n.getNeighborEdges(vec)
                 # template vertices on the ends of the edges e1 and e2
                 tv1 = e1[1]
                 tv2 = e2[1]
@@ -433,30 +408,44 @@ class Template:
         if not p:
             # nothing to prepare
             return
-        # iterate through the vertices of the template to find an outer vert presented in <p.childOffsets>
+        # iterate through the vertices of the template to find an outer vertex presented in <p.childOffsets>
+        # also find a pair of outer edges connected to the outer vertex
         vert = None
+        # a variable for the first edge to be found
+        _e = None
         for v in self.bm.verts:
             vid = self.getVid(v)
-            if vid in p.childOffsets:
+            if vid in p.nodes:
                 # check if the vertex <v> has an outer edge
                 for e in v.link_edges:
                     if len(e.link_faces) == 1:
-                        vert = v
-                        break
+                        if _e:
+                            # the second edge is simply <e>
+                            break
+                        else:
+                            vert = v
+                            # the first edge is found
+                            _e = e
                 if vert:
                     break
         if not vert:
             # nothing to prepare
             return
+        
+        # the cross product of <_e> and <p> must point in the direction of the normal to <vert>
+        if _e.cross(e).dot(self.nodes[vid].v.normal) > 0:
+            e = _e
+        # the reference edges to get offset from the ChildOffset class is <e>
+        
         # walk along outer edges starting from <vert>
         v = vert
         # the last visited edge
-        _e = None
+        _e = e
         # the unit vector along the current edge
         _n = None
         vids = []
         # the current offset
-        offset = p.childOffsets[vid]
+        offset = p.childOffsets.get(vid, e)
         while True:
             # Walk along outer vertices until we encounter a vertex with vid in <p.childOffsets> OR
             # the direction of the current edge is changed significantly
@@ -469,7 +458,7 @@ class Template:
                     break
             vid = self.getVid(v)
             
-            hasOffset = vid in p.childOffsets
+            hasOffset = vid in p.nodes
             
             # the unit vector along the edge defined by <_v> and <v>
             n = (v.co - _v.co).normalized()
@@ -479,7 +468,7 @@ class Template:
             
             if hasOffset:
                 # set the current offset
-                offset = p.childOffsets[vid]
+                offset = p.childOffsets.get(vid, e)
                 _offset = None
                 if directionChanged:
                     # set offset only sfor the last vid in <vids>
@@ -490,7 +479,7 @@ class Template:
                     _offset = projectOntoPlane(offset, n)
                     # set offset for all outer vertices in <vids> list
                     for vid in vids:
-                        self.childOffsets[vid] = _offset
+                        self.childOffsets.set(vid, e, _offset)
                     vids = []
                 _n = None
             else:
@@ -502,7 +491,7 @@ class Template:
                         # We need the projection of <offset> vector onto the plane
                         # defined by the normal <n> to the plane
                         _offset = projectOntoPlane(offset, n)
-                        self.childOffsets[vid] = _offset
+                        self.childOffsets.set(vid, e, _offset)
                     else:
                         vids.append(vid)
                     _n = n
@@ -515,14 +504,15 @@ class Template:
         """
         Scan Blender object <n> for Blender EMPTY objects that define an offset for a child item
         """
-        # <self.childOffsets[vid]> could have been be set in <self.prepareOffsets()>
-        if not vid in self.childOffsets:
-            # set child offset to zero for correct operation
-            self.childOffsets[vid] = zeroVector.copy()
+        # offsets could have been be set in <self.prepareOffsets()>
+        
         for e in n.children:
             if "t" in e and e["t"]=="offset":
                 offset = matrix * e.location if matrix else e.location.copy()
+                # get neighbor edges for the <offset> vector
+                # actually, the first edges is enough since it unambiguously defines the related corner
+                e1 = self.nodes[vid].getNeighborEdges(offset)[0][0]
                 p = self.parentTemplate
-                if p and vid in p.childOffsets:
-                    offset += p.childOffsets[vid]
-                self.childOffsets[vid] += offset
+                if p and vid in p.nodes:
+                    offset += p.childOffsets.get(vid, e1, True)
+                self.childOffsets.set(vid, e1, offset, True)
