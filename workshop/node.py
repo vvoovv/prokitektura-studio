@@ -1,6 +1,6 @@
 import math
 import bpy, mathutils
-from base import zero2, zeroVector
+from base import zero2
 from util.blender import getBmesh, setVertexGroupName
 
 
@@ -29,16 +29,6 @@ class Node:
         # normal to the vertex
         self.n = v.normal
         self.edges = self.arrangeEdges(edges)
-        
-        # Offsets are stored in the order as entries in <self.edges>
-        # The corner for an offset is defined by unit vectors from entries
-        # with the indices <i> and <i+1> in <self.edges>
-        offsets = []
-        # Set child offset to zero for correct operation for all pairs of edges
-        # sharing the same origin vertex <vid>
-        for _ in range(len(edges)):
-            offsets.append(zeroVector)
-        self.offsets = offsets
     
     def setBlenderObject(self, o):
         """
@@ -188,6 +178,13 @@ class Node:
         baseVec = edges[0][0]
         cos = baseVec.dot(vec)
         firstCircleHalf = n.dot( baseVec.cross(vec)) > 0.
+        
+        # treat the special case for only two edges
+        if len(edges) == 2:
+            e1, e2 = edges
+            _cos = baseVec.dot(edges[1][0])
+            return e1,e2 if firstCircleHalf and cos < _cos else e2,e1
+        
         if firstCircleHalf:
             for i in range(len(edges)):
                 e1, e2 = edges[i], edges[i+1]
@@ -205,7 +202,7 @@ class Node:
     def getEdgeIndex(self, edge):
         # edge ins normalized
         for i, e in enumerate(self.edges):
-            if abs( 1.-edge.dot(e) ) < zero2:
+            if abs( 1.-edge.dot(e[0]) ) < zero2:
                 return i
 
 

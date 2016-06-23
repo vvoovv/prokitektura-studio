@@ -12,6 +12,39 @@ def getEdges(v):
     return edges
 
 
+def getVectorFromEdge(edge, vert):
+    v1, v2 = edge.verts
+    if v2 == vert:
+        v1, v2 = v2, v1
+    return v2.co - v1.co
+
+
+def getOuterEdgeVector(v):
+    # a variable for the first edge to be found
+    _e = None
+    # check if the vertex <v> has an outer edge
+    for e in v.link_edges:
+        if len(e.link_faces) == 1:
+            if _e:
+                # the second edge is simply <e>
+                break
+            else:
+                # the first edge is found
+                _e = e
+    if not _e:
+        # the vertex doesn't have outer edges
+        return None
+    
+    # for the edges <_e> and <e> get the related vectors <_vec> and <vec> originating from the vertex <v>
+    _vec = getVectorFromEdge(_e, v)
+    vec = getVectorFromEdge(e, v)
+    
+    # the cross product of <_vec> and <vec> must point in the direction of the normal to <vert>
+    if _vec.cross(vec).dot(v.normal) > 0:
+        vec = _vec
+    return vec
+
+
 class SurfaceVerts:
     """
     A data structure to deal with vertices that constitute a surface
@@ -91,24 +124,50 @@ class SurfaceVerts:
 
 class ChildOffsets:
     """
-    A wrapper class to deal with offsets for child items
+    A data structure to deal with offsets for child items
+    
+    Offsets are stored in the same order as the entries for edges in <template.nodes[vid].edges>
+    The corner for an offset is defined by unit vectors from entries
+    with the indices <i> and <i+1> in <self.edges>
     """
-    def __init__(self, nodes):
-        self.nodes = nodes
+    def __init__(self, template):
+        self.nodes = template.nodes
+        offsets = {}
+        # Set child offset to zero for correct operation for all pairs of edges
+        # sharing the same origin vertex <vid>
+        for v in template.bm.verts:
+            vid = template.getVid(v)
+            _offsets = []
+            offsets[vid] = _offsets
+            for _ in v.link_edges:
+                _offsets.append(zeroVector)
+        
+        self.offsets = offsets
     
-    def get(self, vid, edge, normalized=False):
-        if not normalized:
-            edge = edge.normalized()
-        node = self.nodes[vid]
-        index = node.getEdgeIndex(edge)
-        return node.offsets[index]
+    def get(self, vid, edgeVector, normalized=False):
+        offsets = self.offsets[vid]
+        if edgeVector:
+            node = self.nodes[vid]
+            if not normalized:
+                edgeVector = edgeVector.normalized()
+            index = node.getEdgeIndex(edgeVector)
+            return offsets[index]
+        else:
+            return offsets[0]
     
-    def set(self, vid, edge, offset, normalized=False):
-        if not normalized:
-            edge = edge.normalized()
-        node = self.nodes[vid]
-        index = node.getEdgeIndex(edge)
-        node.offsets[index] = offset
+    def set(self, vid, edgeVector, offset, normalized=False):
+        # if edge is None, set offsets for all edge sharing the same vertex <vid>
+        offsets = self.offsets[vid]
+        if edgeVector:
+            node = self.nodes[vid]
+            if not normalized:
+                edgeVector = edgeVector.normalized()
+            index = node.getEdgeIndex(edgeVector)
+            offsets[index] = offset
+        else:
+            for i in range(len(offsets)):
+                offsets[i] = offset
+
 
 class Template:
     
@@ -125,7 +184,7 @@ class Template:
         self.layer = deform[0] if deform else deform.new()
         
         self.nodes = {}
-        self.childOffsets = ChildOffsets(self.nodes)
+        self.childOffsets = ChildOffsets(self)
     
     def setVid(self, v):
         """
@@ -252,11 +311,12 @@ class Template:
         vid = self.getVid(v)
         nw.vid = vid
         
+        # keep the node wrapper <nw> in the dictionary <self.nodes>
+        self.nodes[vid] = nw
+        
         # create a copy of <n> at the location of the vertex <v>
         loc = v.co.copy()
-        offset = self.getOffset(vid)
-        if offset:
-            loc += offset
+        loc += self.getOffset(v, vid)
         _n = n
         n = createMeshObject(n.name, loc, _n.data)
         # copy vertex groups
@@ -276,8 +336,6 @@ class Template:
         parent.select = True
         bpy.ops.object.join()
         parent.select = False
-        # keep the node wrapper <nw> in the dictionary <self.nodes>
-        self.nodes[vid] = nw
     
     def getNodeWrapper(self, v):
         from workshop.node import LNode, TNode, YNode
@@ -394,10 +452,10 @@ class Template:
             # finally, create BMFace for the surface
             bm.faces.new(verts)
     
-    def getOffset(self, vid):
+    def getOffset(self, v, vid):
         p = self.parentTemplate
-        return p.childOffsets[vid] if p and vid in p.childOffsets\
-            else (self.childOffsets[vid] if vid in self.childOffsets else None)
+        e = getOuterEdgeVector(v)
+        return p.childOffsets.get(vid, e) if p and vid in p.nodes else self.childOffsets.get(vid, None)
     
     def prepareOffsets(self):
         """
@@ -432,9 +490,12 @@ class Template:
             # nothing to prepare
             return
         
+        _vec = getVectorFromEdge(_e, vert)
+        vec = getVectorFromEdge(e, vert)
         # the cross product of <_e> and <p> must point in the direction of the normal to <vert>
-        if _e.cross(e).dot(self.nodes[vid].v.normal) > 0:
+        if _vec.cross(vec).dot(vert.normal) > 0:
             e = _e
+            vec = _vec
         # the reference edges to get offset from the ChildOffset class is <e>
         
         # walk along outer edges starting from <vert>
@@ -445,7 +506,7 @@ class Template:
         _n = None
         vids = []
         # the current offset
-        offset = p.childOffsets.get(vid, e)
+        offset = p.childOffsets.get(vid, vec)
         while True:
             # Walk along outer vertices until we encounter a vertex with vid in <p.childOffsets> OR
             # the direction of the current edge is changed significantly
@@ -468,7 +529,7 @@ class Template:
             
             if hasOffset:
                 # set the current offset
-                offset = p.childOffsets.get(vid, e)
+                offset = p.childOffsets.get(vid, getVectorFromEdge(e, v))
                 _offset = None
                 if directionChanged:
                     # set offset only sfor the last vid in <vids>
@@ -479,7 +540,7 @@ class Template:
                     _offset = projectOntoPlane(offset, n)
                     # set offset for all outer vertices in <vids> list
                     for vid in vids:
-                        self.childOffsets.set(vid, e, _offset)
+                        self.childOffsets.set(vid, None, _offset)
                     vids = []
                 _n = None
             else:
@@ -491,7 +552,7 @@ class Template:
                         # We need the projection of <offset> vector onto the plane
                         # defined by the normal <n> to the plane
                         _offset = projectOntoPlane(offset, n)
-                        self.childOffsets.set(vid, e, _offset)
+                        self.childOffsets.set(vid, None, _offset)
                     else:
                         vids.append(vid)
                     _n = n
