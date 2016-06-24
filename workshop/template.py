@@ -13,6 +13,13 @@ def getEdges(v):
 
 
 def getVectorFromEdge(edge, vert):
+    """
+    Returns a vector along the <edge> originating at the vertex <vert>
+    
+    Args:
+        edge (BMEdge): An edge
+        vert (BMVert): A vertex belonging to the <edge>
+    """
     v1, v2 = edge.verts
     if v2 == vert:
         v1, v2 = v2, v1
@@ -20,6 +27,13 @@ def getVectorFromEdge(edge, vert):
 
 
 def getOuterEdgeVector(v):
+    """
+    Returns a vector along a BMEdge that fulfils the following conditions:
+    1) the edge contains the vertex <v>
+    2) the edge is an outer one for the template to which the vertex <v> belongs
+    3) cross product of the edge vector with the other outer edge vector must point
+    in the direction of the normal to the vertex 
+    """
     # a variable for the first edge to be found
     _e = None
     # check if the vertex <v> has an outer edge
@@ -126,25 +140,35 @@ class ChildOffsets:
     """
     A data structure to deal with offsets for child items
     
-    Offsets are stored in the same order as the entries for edges in <template.nodes[vid].edges>
+    Offsets for the vertex <vid> are stored in the same order as the entries
+    for edges in <template.nodes[vid].edges>
     The corner for an offset is defined by unit vectors from entries
-    with the indices <i> and <i+1> in <self.edges>
+    with the indices <i> and <i+1> in <template.nodes[vid].edges>. However the unit vector
+    from the entry with the index <i> is enough to access the relate offset. 
     """
     def __init__(self, template):
         self.nodes = template.nodes
         offsets = {}
-        # Set child offset to zero for correct operation for all pairs of edges
-        # sharing the same origin vertex <vid>
+        self.offsets = offsets
+        # For the sake of correct operation set child offset to zero for all corners
+        # of each vertex in the template
         for v in template.bm.verts:
             vid = template.getVid(v)
             _offsets = []
             offsets[vid] = _offsets
             for _ in v.link_edges:
                 _offsets.append(zeroVector.copy())
-        
-        self.offsets = offsets
     
     def get(self, vid, edgeVector, normalized=False):
+        """
+        Get offset for the corner of the vertex <vid> defined by the vector <edgeVector>
+        originating from the vertex <vid>.
+        
+        The variable <normalized> indicated whether <edgeVector> is normalized.
+        If <edgeVector> is None, then offset is taken from the first corner of the vertex <vid>.
+        The use case with <edgeVector> is None happens if all corners of the vertex <vid> have
+        the same offset.
+        """
         offsets = self.offsets[vid]
         if edgeVector:
             node = self.nodes[vid]
@@ -156,6 +180,13 @@ class ChildOffsets:
             return offsets[0]
     
     def set(self, vid, edgeVector, offset, normalized=False):
+        """
+        Set <offset> for the corner of the vertex <vid> defined by the vector <edgeVector>
+        originating from the vertex <vid>.
+        
+        The variable <normalized> indicated whether <edgeVector> is normalized.
+        If <edgeVector> is None, then <offset> is set for all corners of the vertex <vid>.
+        """
         # if edge is None, set offsets for all edges sharing the same vertex <vid>
         offsets = self.offsets[vid]
         if edgeVector:
@@ -169,7 +200,13 @@ class ChildOffsets:
                 offsets[i] = offset
     
     def add(self, vid, edgeVector, offset, normalized=False):
-        # if edge is None, add offsets for all edges sharing the same vertex <vid>
+        """
+        Add <offset> for the corner of the vertex <vid> defined by the vector <edgeVector>
+        originating from the vertex <vid>.
+        
+        The variable <normalized> indicated whether <edgeVector> is normalized.
+        If <edgeVector> is None, then <offset> is added for all corners of the vertex <vid>.
+        """
         offsets = self.offsets[vid]
         if edgeVector:
             node = self.nodes[vid]
@@ -583,7 +620,7 @@ class Template:
             if "t" in e and e["t"]=="offset":
                 offset = matrix * e.location if matrix else e.location.copy()
                 # get neighbor edges for the <offset> vector
-                # actually, the first edges is enough since it unambiguously defines the related corner
+                # actually, the first edge is enough since it unambiguously defines the related corner
                 e1 = self.nodes[vid].getNeighborEdges(offset)[0][0]
                 p = self.parentTemplate
                 if p and vid in p.nodes:

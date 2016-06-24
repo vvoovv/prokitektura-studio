@@ -199,10 +199,13 @@ class Node:
                 if e1[3] < cos < e2[3]:
                     return e1, e2
     
-    def getEdgeIndex(self, edge):
-        # edge ins normalized
+    def getEdgeIndex(self, edgeVector):
+        """
+        Get <index> of <self.edges> for which <self.edges[index][0] == edgeVector>.
+        <edgeVector> must be normalized!
+        """
         for i, e in enumerate(self.edges):
-            if abs( 1.-edge.dot(e[0]) ) < zero2:
+            if abs( 1.-edgeVector.dot(e[0]) ) < zero2:
                 return i
 
 
