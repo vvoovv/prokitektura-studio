@@ -140,7 +140,7 @@ class ChildOffsets:
             _offsets = []
             offsets[vid] = _offsets
             for _ in v.link_edges:
-                _offsets.append(zeroVector)
+                _offsets.append(zeroVector.copy())
         
         self.offsets = offsets
     
@@ -156,7 +156,7 @@ class ChildOffsets:
             return offsets[0]
     
     def set(self, vid, edgeVector, offset, normalized=False):
-        # if edge is None, set offsets for all edge sharing the same vertex <vid>
+        # if edge is None, set offsets for all edges sharing the same vertex <vid>
         offsets = self.offsets[vid]
         if edgeVector:
             node = self.nodes[vid]
@@ -167,7 +167,19 @@ class ChildOffsets:
         else:
             for i in range(len(offsets)):
                 offsets[i] = offset
-
+    
+    def add(self, vid, edgeVector, offset, normalized=False):
+        # if edge is None, add offsets for all edges sharing the same vertex <vid>
+        offsets = self.offsets[vid]
+        if edgeVector:
+            node = self.nodes[vid]
+            if not normalized:
+                edgeVector = edgeVector.normalized()
+            index = node.getEdgeIndex(edgeVector)
+            offsets[index] += offset
+        else:
+            for i in range(len(offsets)):
+                offsets[i] += offset
 
 class Template:
     
@@ -576,4 +588,4 @@ class Template:
                 p = self.parentTemplate
                 if p and vid in p.nodes:
                     offset += p.childOffsets.get(vid, e1, True)
-                self.childOffsets.set(vid, e1, offset, True)
+                self.childOffsets.add(vid, e1, offset, True)
