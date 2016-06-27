@@ -220,7 +220,7 @@ class ChildOffsets:
 
 class Template:
     
-    def __init__(self, o, parentTemplate=None):
+    def __init__(self, o, parentTemplate=None, **kwargs):
         self.o = o
         self.parentTemplate = parentTemplate
         p = o.parent
@@ -232,8 +232,9 @@ class Template:
         deform = bm.verts.layers.deform
         self.layer = deform[0] if deform else deform.new()
         
-        self.nodes = {}
-        self.childOffsets = ChildOffsets(self)
+        if not kwargs.get("skipInit", None):
+            self.nodes = {}
+            self.childOffsets = ChildOffsets(self)
     
     def setVid(self, v):
         """
@@ -387,7 +388,7 @@ class Template:
         parent.select = False
     
     def getNodeWrapper(self, v):
-        from workshop.node import LNode, TNode, YNode
+        from workshop.node import LNode, TNode, YNode, CrossNode, XNode
         numEdges = len(v.link_edges)
         edges = getEdges(v)
         if numEdges == 2:
@@ -396,6 +397,10 @@ class Template:
             # consider, that we have a T-node
             nw = TNode(v, edges)
             return nw if nw.edges else YNode(v, edges)
+        elif numEdges == 4:
+            # consider, that we have c cross-node
+            nw = CrossNode(v, edges)
+            return nw if nw.edges else XNode(v, edges)
     
     def bridgeNodes(self, o, bm, dissolveEndEdges):
         layer = bm.verts.layers.deform[0]

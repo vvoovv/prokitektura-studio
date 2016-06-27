@@ -72,7 +72,7 @@ class WorkshopAssignNode(bpy.types.Operator):
             return {'CANCELLED'}
         
         bpy.ops.object.mode_set(mode='OBJECT')
-        Template(o).assignNode(n).complete()
+        Template(o, skipInit=True).assignNode(n).complete()
         return {'FINISHED'}
 
 

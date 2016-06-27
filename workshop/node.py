@@ -250,6 +250,15 @@ class YNode(Node):
     pass
 
 
+class CrossNode(Node):
+    
+    def arrangeEdges(self, edges):
+        self.baseEdgeIndex = 0
+        edges = super().arrangeEdges(edges)
+        # check if all angle are the right ones
+        return edges if abs(edges[1][3])<zero2 and abs(edges[2][3]+1)<zero2 and abs(edges[3][3]<zero2) else None
+
+
 class XNode(Node):
     pass
 
