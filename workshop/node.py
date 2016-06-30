@@ -1,7 +1,7 @@
 import math
-import bpy, mathutils
-from base import zero2
-from util.blender import getBmesh, setVertexGroupName
+import bpy, bmesh, mathutils
+from base import zero2, zeroVector
+from util.blender import getBmesh, setBmesh, setVertexGroupName, getVertsForVertexGroup
 
 
 def is90degrees(cos):
@@ -148,7 +148,18 @@ class Node:
                 angle = -angle
             bpy.ops.transform.rotate(value = angle, axis=self.n)
             matrix = mathutils.Matrix.Rotation(angle, 4, self.n)
+        
+        angle = self.rotate(o)
+        
+        self.shear(o, angle)
+        
         return matrix
+    
+    def rotate(self, o):
+        pass
+    
+    def shear(self, o, angle):
+        pass
     
     def updateVertexGroupNames(self, o, template):
         # update the names of the vertex groups that define the ends of the node <o>
@@ -220,7 +231,48 @@ class LNode(Node):
         cross = edges[0][0].cross(edges[1][0])
         # check if <cross> and the normal <self.n> point in the same direction
         baseEdgeIndex = 0 if self.n.dot(cross) > 0. else 1
-        return (edges[baseEdgeIndex], edges[1-baseEdgeIndex])
+        
+        edges = (edges[baseEdgeIndex], edges[1-baseEdgeIndex])
+        
+        # add two extra elements to each entry of <edges> as described in <Node.arrangeNodes(..)>
+        # the cosine of the angle between the edges will be used in <self.rotate(..)>
+        edges[0].extend(( 1., True ))
+        edges[1].extend(( edges[0][0].dot(edges[1][0]), True ))
+        return edges
+    
+    def rotate(self, o):
+        # check if we need to perform rotation
+        cos = self.edges[1][2]
+        if abs(cos) < zero2:
+            return
+        
+        angle = math.acos(cos)
+        
+        # create a single-user copy of the mesh data
+        o.data = o.data.copy()
+        
+        bm = getBmesh(o)
+        bmesh.ops.rotate(
+            bm,
+            cent = zeroVector,
+            matrix = mathutils.Matrix.Rotation(angle-math.pi/2., 3, self.n),
+            verts = getVertsForVertexGroup(o, bm, o.vertex_groups[ self._edges[1][1] ].name)
+        )
+        setBmesh(o, bm)
+        
+        return angle
+    
+    def shear(self, o, angle):
+        if angle is None or not "c" in o.vertex_groups:
+            return
+        
+        bm = getBmesh(o)
+        bmesh.ops.transform(
+            bm,
+            matrix = mathutils.Matrix.Shear('XY', 4, (1./math.tan(angle/2.) - 1., 0.)),
+            verts = getVertsForVertexGroup(o, bm, "c")
+        )
+        setBmesh(o, bm)
 
 
 class TNode(Node):

@@ -375,16 +375,18 @@ class Template:
         context.scene.update()
         parent_set(parent, n)
         context.scene.update()
+        
+        nw.updateVertexGroupNames(n, self)
+        
         # select the Blender object <o>, so we can transform it, e.g. rotate it
         n.select = True
         matrix = nw.transform(n)
         
         self.scanOffsets(vid, _n, matrix)
-                
-        nw.updateVertexGroupNames(n, self)
         # <parent> is also the current Blender active object
         parent.select = True
         bpy.ops.object.join()
+        
         parent.select = False
     
     def getNodeWrapper(self, v):
