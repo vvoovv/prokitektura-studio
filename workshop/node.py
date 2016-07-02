@@ -156,9 +156,26 @@ class Node:
         return matrix
     
     def rotate(self, o):
+        """
+        Rotate a group vertices with the name <i_?> which are located
+        at an open end of the Blender object <o> serving as a node for the template vertex <self.v>
+        
+        Returns:
+            float: Angle between edges in radians, if rotation is needed, None otherwise
+            In future implementations a tuple of angle can be returned
+        """
         pass
     
     def shear(self, o, angle):
+        """
+        Perform a shear transformation of the central part of the Blender object <o>
+        serving as a node for the template vertex <self.v>
+        
+        The central part to shear is defined by a group of vertices with the name <c>
+        
+        The variable <angle> is supplied by <self.rotate(..)>. See documentation to <self.rotate(..)>
+        for the definition of the <angle>. If <angle> is None, no shear transformation is needed.
+        """
         pass
     
     def updateVertexGroupNames(self, o, template):
@@ -228,8 +245,9 @@ class LNode(Node):
         self.cross = edges[0][0].cross(edges[1][0])
     
     def arrangeEdges(self, edges):
+        # the code is splitted for template edges and edges from a Blender object
         if isinstance(edges[0][1], bmesh.types.BMVert):
-            # The main problem for the node with two edge when <edges> represent template edges is
+            # The main problem for the node with two edges when <edges> represent template edges is
             # that angle can be concave
             # check the order of vertices
             baseEdgeIndex = 1 if self.v.link_loops[0].link_loop_prev.vert == edges[0][1] else 0
@@ -257,6 +275,9 @@ class LNode(Node):
         return edges
     
     def rotate(self, o):
+        """
+        Realization of <Node.rotate(..)>
+        """
         # check if we need to perform rotation
         cos = self.edges[1][2]
         convex = self.edges[1][3]
@@ -284,6 +305,9 @@ class LNode(Node):
         return angle
     
     def shear(self, o, angle):
+        """
+        Realization of <Node.shear(..)>
+        """
         if angle is None or not "c" in o.vertex_groups:
             return
         
