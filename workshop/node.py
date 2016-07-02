@@ -228,22 +228,39 @@ class LNode(Node):
         self.cross = edges[0][0].cross(edges[1][0])
     
     def arrangeEdges(self, edges):
-        cross = edges[0][0].cross(edges[1][0])
-        # check if <cross> and the normal <self.n> point in the same direction
-        baseEdgeIndex = 0 if self.n.dot(cross) > 0. else 1
+        if isinstance(edges[0][1], bmesh.types.BMVert):
+            # The main problem for the node with two edge when <edges> represent template edges is
+            # that angle can be concave
+            # check the order of vertices
+            baseEdgeIndex = 1 if self.v.link_loops[0].link_loop_prev.vert == edges[0][1] else 0
+            vec1 = edges[baseEdgeIndex][0]
+            vec2 = edges[1-baseEdgeIndex][0]
+            # cross product between the vectors
+            cross = vec1.cross(vec2)
+            # To check if have a concave (>180) or convex angle (<180) between <vec1> and <vec2>
+            # we calculate dot product between <cross> and the normal <self.n> to the vertex <self.v>
+            # If the dot product is positive, we have a convex angle (<180), otherwise concave (>180)
+            dot = cross.dot(self.n)
+            convex = True if dot>0 else False
+        else:
+            cross = edges[0][0].cross(edges[1][0])
+            # check if <cross> and the normal <self.n> point in the same direction
+            baseEdgeIndex = 0 if self.n.dot(cross) > 0. else 1
+            # the angle between the edges is always convex in this case
+            convex = True
         
         edges = (edges[baseEdgeIndex], edges[1-baseEdgeIndex])
-        
         # add two extra elements to each entry of <edges> as described in <Node.arrangeNodes(..)>
         # the cosine of the angle between the edges will be used in <self.rotate(..)>
         edges[0].extend(( 1., True ))
-        edges[1].extend(( edges[0][0].dot(edges[1][0]), True ))
+        edges[1].extend(( edges[0][0].dot(edges[1][0]), convex))
         return edges
     
     def rotate(self, o):
         # check if we need to perform rotation
         cos = self.edges[1][2]
-        if abs(cos) < zero2:
+        convex = self.edges[1][3]
+        if convex and abs(cos) < zero2:
             return
         
         angle = math.acos(cos)
@@ -255,7 +272,11 @@ class LNode(Node):
         bmesh.ops.rotate(
             bm,
             cent = zeroVector,
-            matrix = mathutils.Matrix.Rotation(angle-math.pi/2., 3, self.n),
+            matrix = mathutils.Matrix.Rotation(
+                angle-math.pi/2. if convex else 1.5*math.pi-angle,
+                3,
+                self.n
+            ),
             verts = getVertsForVertexGroup(o, bm, o.vertex_groups[ self._edges[1][1] ].name)
         )
         setBmesh(o, bm)
@@ -266,10 +287,16 @@ class LNode(Node):
         if angle is None or not "c" in o.vertex_groups:
             return
         
+        convex = self.edges[1][3]
         bm = getBmesh(o)
+        shearFactor = 1./math.tan(angle/2.)
+        if convex:
+            shearFactor = shearFactor - 1.
+        else:
+            shearFactor = -shearFactor - 1.
         bmesh.ops.transform(
             bm,
-            matrix = mathutils.Matrix.Shear('XY', 4, (1./math.tan(angle/2.) - 1., 0.)),
+            matrix = mathutils.Matrix.Shear('XY', 4, (shearFactor, 0.)),
             verts = getVertsForVertexGroup(o, bm, "c")
         )
         setBmesh(o, bm)
