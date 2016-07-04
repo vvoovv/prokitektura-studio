@@ -22,6 +22,8 @@ class WorkshopStartWindow(bpy.types.Operator):
         o.show_wire = True
         o.show_all_edges = True
         o["id"] = 1
+        # reverse the surface <s1> by default
+        o["s1"] = "reversed"
         parent = createEmptyObject("Window", (0., 0., 0.), True, empty_draw_type='PLAIN_AXES', empty_draw_size=0.05)
         o.parent = parent
         parent["pane_counter"] = 2

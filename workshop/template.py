@@ -117,6 +117,8 @@ class SurfaceVerts:
             del sverts[sl][vid]
             if not len(sverts[sl]):
                 del sverts[sl]
+                # remember the surface layer if a reversion of the surface normal is needed
+                self._sl = self.sl
                 self.sl = None
         else:
             if tv:
@@ -134,6 +136,9 @@ class SurfaceVerts:
                 v = sverts[sl][vid].pop()
         self.numVerts -= 1
         return v, vid
+    
+    def getSurfaceLayer(self):
+        return self.sl or self._sl
     
 
 class ChildOffsets:
@@ -256,6 +261,7 @@ class Template:
         
         Returns a string
         """
+        self.setVid(v)
         groupIndex = v[self.layer].keys()[0]
         return self.o.vertex_groups[groupIndex].name
     
@@ -268,7 +274,6 @@ class Template:
         """
         for v in self.bm.verts:
             if v.select:
-                self.setVid(v)
                 # get our vertex id under the variable <vid>
                 self.o[ self.getVid(v) ] = n.name
                 v.select = False
@@ -306,6 +311,8 @@ class Template:
             o["id"] = paneCounter
             # set id of the parent pane
             o["p"] = parentId
+            # reverse the surface <s1> by default
+            o["s1"] = "reversed"
             o.parent = p
             bm = getBmesh(o)
             # create a layer for vertex groups
@@ -506,7 +513,11 @@ class Template:
                 if v:
                     verts.append(v)
             # finally, create BMFace for the surface
-            bm.faces.new(verts)
+            face = bm.faces.new(verts)
+            # check if we need to reverse the normal to the current surface
+            sl = sverts.getSurfaceLayer()
+            if sl in self.o and self.o[sl] == "reversed":
+                bmesh.ops.reverse_faces(bm, faces=(face,))
     
     def getOffset(self, v, vid):
         p = self.parentTemplate
