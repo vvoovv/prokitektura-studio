@@ -102,16 +102,19 @@ class SurfaceVerts:
                     self.numVerts += 1
     
     def pop(self, tv=None, vec1=None, vec2=None):
-        # tv stands for template vert
+        # tv stands for template vertex
         # If <templateVert>, <vec1> and <vec2> are given, that means pop a surface vert for <tv>
         # located between vectors <vec1> and <vec2>
-        # If <tv>, <vec1> and <vec2> aren't given, a random surface vert is returned
+        # If <tv>, <vec1> and <vec2> aren't given, a random surface vertex and its vid are returned
         sverts = self.sverts
         if self.sl is None:
             # set the current surface layer
             self.sl = next(iter(sverts))
         sl = self.sl
         vid = self.template.getVid(tv) if tv else next(iter(sverts[sl]))
+        # if the template vertex <tv> is given, it may not have a related surface vertex
+        if not vid in sverts[sl]:
+            return None, None 
         if len(sverts[sl][vid]) == 1:
             v = sverts[sl][vid][0]
             del sverts[sl][vid]

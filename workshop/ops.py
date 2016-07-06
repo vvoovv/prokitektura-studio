@@ -1,4 +1,5 @@
 import bpy
+from base import zeroVector
 from util.blender import createEmptyObject
 from .template import Template
 from item.window import Window
@@ -18,13 +19,14 @@ class WorkshopStartWindow(bpy.types.Operator):
         o = context.object
         o.name = "T_Frame"
         o.data.name = "T_Frame"
-        o.location = (0., 0., 0.)
+        location = o.location.copy()
+        o.location = zeroVector
         o.show_wire = True
         o.show_all_edges = True
         o["id"] = 1
         # reverse the surface <s1> by default
         o["s1"] = "reversed"
-        parent = createEmptyObject("Window", (0., 0., 0.), True, empty_draw_type='PLAIN_AXES', empty_draw_size=0.05)
+        parent = createEmptyObject("Window", location, True, empty_draw_type='PLAIN_AXES', empty_draw_size=0.05)
         o.parent = parent
         parent["pane_counter"] = 2
         parent["vert_counter"] = 1
