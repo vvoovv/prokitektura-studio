@@ -1,6 +1,7 @@
 import math
 import bpy, bmesh, mathutils
 from base import zero2, zeroVector
+from util import acos
 from util.blender import getBmesh, setBmesh, setVertexGroupName, getVertsForVertexGroup
 
 
@@ -143,7 +144,7 @@ class Node:
         dot = baseEdge.dot(_baseEdge)
         # check if <baseEdge> and <_baseEdge> are already aligned
         if abs(1-dot) > zero2:
-            angle = math.acos(dot)
+            angle = acos(dot)
             if self.n.dot( _baseEdge.cross(baseEdge) ) < 0.:
                 angle = -angle
             bpy.ops.transform.rotate(value = angle, axis=self.n)
@@ -284,7 +285,7 @@ class LNode(Node):
         if convex and abs(cos) < zero2:
             return
         
-        angle = math.acos(cos)
+        angle = acos(cos)
         
         # create a single-user copy of the mesh data
         o.data = o.data.copy()
