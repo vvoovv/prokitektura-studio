@@ -1,4 +1,5 @@
 import bpy
+from base import pContext
 from .ops import *
 
 
@@ -11,11 +12,16 @@ class PanelWorkshop(bpy.types.Panel):
     
     def draw(self, context):
         layout = self.layout
-        layout.operator("prk.workshop_start_window")
-        layout.operator("prk.workshop_add_pane")
-        layout.operator("prk.workshop_assign_node")
-        layout.operator("prk.workshop_set_child_offset")
-        layout.operator("prk.workshop_make_window")
+        prk = context.scene.prk
+        
+        layout.prop(prk, "workshopType")
+        layout.separator()
+        
+        if not prk.workshopType in pContext.items:
+            return
+        
+        pContext.items[prk.workshopType][1].draw_workshop(context, layout)
+        
 
 
 def register():

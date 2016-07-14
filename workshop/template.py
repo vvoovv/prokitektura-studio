@@ -282,7 +282,7 @@ class Template:
                 v.select = False
         return self
     
-    def addPanes(self):
+    def addParts(self):
         # get the selected faces
         faces = []
         for f in self.bm.faces:
@@ -292,7 +292,7 @@ class Template:
             return None
         
         p = self.p
-        paneCounter = p["pane_counter"]
+        partCounter = p["part_counter"]
         parentId = self.o["id"]
         for f in faces:
             # find the coordinates of the leftmost and the lowest vertices if the <face>
@@ -306,13 +306,13 @@ class Template:
                     minX = v.co.x
                 if v.co.z < minZ:
                     minZ = v.co.z
-            # create an object for the new pane
+            # create an object for the new part
             location = mathutils.Vector((minX, 0., minZ))
-            o = createMeshObject("T_Pane_" + str(parentId) + "_" + str(paneCounter), self.o.location+location)
+            o = createMeshObject("T_Part_" + str(parentId) + "_" + str(partCounter), self.o.location+location)
             o.show_wire = True
             o.show_all_edges = True
-            o["id"] = paneCounter
-            # set id of the parent pane
+            o["id"] = partCounter
+            # set id of the parent part
             o["p"] = parentId
             # reverse the surface <s1> by default
             o["s1"] = "reversed"
@@ -320,7 +320,7 @@ class Template:
             bm = getBmesh(o)
             # create a layer for vertex groups
             layer = bm.verts.layers.deform.new()
-            # create vertices for the new pane
+            # create vertices for the new part
             verts = []
             maxVid = 0
             for v in f.verts:
@@ -335,8 +335,8 @@ class Template:
             bm.faces.new(verts)
             setBmesh(o, bm)
             p["vert_counter"] = maxVid + 1
-            paneCounter += 1
-        p["pane_counter"] = paneCounter
+            partCounter += 1
+        p["part_counter"] = partCounter
         return self
     
     def getTopParent(self):

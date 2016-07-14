@@ -145,6 +145,15 @@ class AddItem(bpy.types.Operator):
 
 
 class PrkStudioProperties(bpy.types.PropertyGroup):
+    workshopType = bpy.props.EnumProperty(
+        items = [
+            ("window", "window", "Window"),
+            ("door", "door", "Door")
+        ],
+        name = "Workshop type",
+        description = "Workshop type (e.g. window, door, ...)",
+        default = "window"                
+    )
     levelBundles = bpy.props.CollectionProperty(type=LevelBundle)
     levels = bpy.props.CollectionProperty(type=Level)
     levelIndex = bpy.props.IntProperty(

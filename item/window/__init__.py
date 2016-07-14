@@ -1,13 +1,24 @@
 import bpy, bmesh
 from base import pContext
 from item.opening import Opening
+from gui.workshop import common
 from util.blender import createMeshObject, createEmptyObject, getBmesh, setBmesh, parent_set, addEdgeSplitModifier
 
 
 class GuiWindow:
     
+    itemName = "window"
+    
     def draw(self, context, layout):
         layout.label("A window")
+    
+    def draw_workshop(self, context, layout):
+        common(context, layout, self)
+        
+        layout.separator()
+        layout.label("Handle:")
+        box = layout.box()
+        box.label("test")
 
 
 class Window(Opening):

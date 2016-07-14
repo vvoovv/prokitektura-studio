@@ -5,11 +5,15 @@ from .template import Template
 from item.window import Window
 
 
-class WorkshopStartWindow(bpy.types.Operator):
-    bl_idname = "prk.workshop_start_window"
-    bl_label = "Start a window"
-    bl_description = "Start a window"
+class WorkshopStartTemplate(bpy.types.Operator):
+    bl_idname = "prk.workshop_start_template"
+    bl_label = "Start a template"
+    bl_description = "Initialize a template"
     bl_options = {"REGISTER", "UNDO"}
+    
+    objectNameBase = bpy.props.StringProperty(
+        description = "A base for the name of the Blender object"
+    )
     
     @classmethod
     def poll(cls, context):
@@ -26,26 +30,26 @@ class WorkshopStartWindow(bpy.types.Operator):
         o["id"] = 1
         # reverse the surface <s1> by default
         o["s1"] = "reversed"
-        parent = createEmptyObject("Window", location, True, empty_draw_type='PLAIN_AXES', empty_draw_size=0.05)
+        parent = createEmptyObject(self.objectNameBase, location, True, empty_draw_type='PLAIN_AXES', empty_draw_size=0.05)
         o.parent = parent
-        parent["pane_counter"] = 2
+        parent["part_counter"] = 2
         parent["vert_counter"] = 1
         return {'FINISHED'}
 
 
-class WorkshopAddPane(bpy.types.Operator):
-    bl_idname = "prk.workshop_add_pane"
-    bl_label = "Panes"
-    bl_description = "Add new panes from the selected faces"
+class WorkshopAddPart(bpy.types.Operator):
+    bl_idname = "prk.workshop_add_part"
+    bl_label = "Parts"
+    bl_description = "Add new parts from the selected faces"
     bl_options = {"REGISTER", "UNDO"}
     
     def invoke(self, context, event):
         # we work in the OBJECT mode
         bpy.ops.object.mode_set(mode='OBJECT')
         t = Template(context.object)
-        result = t.addPanes()
+        result = t.addParts()
         if not result:
-            self.report({'ERROR'}, "To add new panes select at least one face")
+            self.report({'ERROR'}, "To add new parts select at least one face")
             return {'CANCELLED'}
         t.complete()
         return {'FINISHED'}
@@ -80,21 +84,21 @@ class WorkshopAssignNode(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class WorkshopMakeWindow(bpy.types.Operator):
-    bl_idname = "prk.workshop_make_window"
-    bl_label = "Make a window"
-    bl_description = "Make a window out of the template"
+class WorkshopMakeItem(bpy.types.Operator):
+    bl_idname = "prk.workshop_make_item"
+    bl_label = "Make an item"
+    bl_description = "Make an item out of the template"
     bl_options = {"REGISTER", "UNDO"}
     
     addEdgeSplitModifier = bpy.props.BoolProperty(
         name = "Add Edge Split modifier",
-        description = "Add Edge Split modifier to the Blender object of the window",
+        description = "Add Edge Split modifier to the Blender object of the item",
         default = True
     )
     
     dissolveEndEdges = bpy.props.BoolProperty(
         name = "Dissolve end edges",
-        description = "Dissolve edges that define the ends of each node used to make the window",
+        description = "Dissolve edges that define the ends of each node used to make the item",
         default = True
     )
     
@@ -103,10 +107,10 @@ class WorkshopMakeWindow(bpy.types.Operator):
         return context.mode == 'OBJECT'
     
     def execute(self, context):
-        self.makePanes(Template(context.object).getTopParent(), context)
+        self.makeParts(Template(context.object).getTopParent(), context)
         return {'FINISHED'}
     
-    def makePanes(self, template, context):
+    def makeParts(self, template, context):
         bpy.ops.object.select_all(action='DESELECT')
         Window(context, self).make(
             template,
@@ -114,7 +118,7 @@ class WorkshopMakeWindow(bpy.types.Operator):
             dissolveEndEdges = self.dissolveEndEdges
         )
         for t in template.getChildren():
-            self.makePanes(t, context)
+            self.makeParts(t, context)
 
 
 class WorkshopSetChildOffset(bpy.types.Operator):
