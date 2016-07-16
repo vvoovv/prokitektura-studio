@@ -421,7 +421,7 @@ class Template:
             vid1 = self.getVid(e.verts[0])
             vid2 = self.getVid(e.verts[1])
             groupIndices = set( (o.vertex_groups["e_" + vid1 + "_" +vid2].index, o.vertex_groups["e_" + vid2 + "_" +vid1].index) )
-            # We will bridge two edge loops composed of the vertices belonging to
+            # We will bridge two edge loops (either open or closed) composed of the vertices belonging to
             # the vertex groups with the indices from <groupIndices>
             
             # For each vertex group index in <groupIndices> get a single vertex belonging
@@ -452,12 +452,39 @@ class Template:
                         if e == edge:
                             continue
                         # a candidate for the next vertex
+                        # 'vn' stands for 'vertex next'
                         _vn =  e.verts[1] if e.verts[0] == _v else e.verts[0]
                         if i in _vn[layer]:
+                            # keep the reference to the initial edge (needed for the case of open edge loops)
+                            if _v == vert:
+                                _edge = e
                             _v = _vn
                             edge = e
                             _edges.append(edge)
                             break
+                    else:
+                        # the edges don't form a closed loop!
+                        # now go in the opposite direction relative to the initial vertex <vert>
+                        
+                        _v = vert
+                        # the last visited edge is the one we saved under under the variable <_edge>
+                        edge = _edge
+                        # basically the same code as above
+                        while True:
+                            for e in _v.link_edges:
+                                if e == edge:
+                                    continue
+                                # a candidate for the next vertex
+                                # 'vn' stands for 'vertex next'
+                                _vn =  e.verts[1] if e.verts[0] == _v else e.verts[0]
+                                if i in _vn[layer]:
+                                    _v = _vn
+                                    edge = e
+                                    _edges.append(edge)
+                                    break
+                            else:
+                                break
+                        break
                     if _v == vert:
                         break
             bmesh.ops.bridge_loops(bm, edges = edges[0] + edges[1])
