@@ -686,6 +686,7 @@ class Template:
                 if directionChanged:
                     offset = None
                     _n = None
+                    vids = [vid]
                 else:
                     if offset:
                         # We need the projection of <offset> vector onto the plane
