@@ -7,6 +7,13 @@ def projectOntoPlane(v, n):
     return v - v.dot(n)*n
 
 
+def projectOntoLine(v, e):
+    """
+    Project vector <v> onto the line defined by the unit vector <l>.
+    """
+    return v.dot(e) * e
+
+
 def isVectorBetweenVectors(vec, vec1, vec2):
     """
     Checks if the vector <vec> lies between vectors <vec1> and <vec2>,

@@ -1,7 +1,7 @@
 import mathutils, bpy, bmesh
 from base import zero2, zeroVector
-from util.blender import createMeshObject, getBmesh, setBmesh, parent_set, assignGroupToVerts
-from util.geometry import projectOntoPlane, isVectorBetweenVectors
+from util.blender import createMeshObject, getBmesh, setBmesh, parent_set, assignGroupToVerts, getVertsForVertexGroup
+from util.geometry import projectOntoPlane, projectOntoLine, isVectorBetweenVectors
 
 
 def getEdges(v):
@@ -414,83 +414,125 @@ class Template:
             nw = CrossNode(v, edges)
             return nw if nw.edges else XNode(v, edges)
     
-    def bridgeNodes(self, o, bm, dissolveEndEdges):
-        layer = bm.verts.layers.deform[0]
+    def bridgeOrExtendNodes(self, o, bm, dissolveEndEdges):
+        nodes = self.nodes
         # iterate through the edges of the template
         for e in self.bm.edges:
             vid1 = self.getVid(e.verts[0])
             vid2 = self.getVid(e.verts[1])
-            groupIndices = set( (o.vertex_groups["e_" + vid1 + "_" +vid2].index, o.vertex_groups["e_" + vid2 + "_" +vid1].index) )
-            # We will bridge two edge loops (either open or closed) composed of the vertices belonging to
-            # the vertex groups with the indices from <groupIndices>
-            
-            # For each vertex group index in <groupIndices> get a single vertex belonging
-            # to the related vertex group
-            verts = {}
-            for _v in bm.verts:
-                vert = None
-                for i in groupIndices:
-                    if i in _v[layer]:
-                        vert = _v
+            if vid1 in nodes and vid2 in nodes:
+                self.bridgeNodes(vid1, vid2, o, bm, dissolveEndEdges)
+            elif not vid1 in nodes and not vid2 in nodes:
+                # nothing to do here
+                continue
+            else:
+                v1 = e.verts[0]
+                v2 = e.verts[1]
+                # only one node (either for the template vertex <vid1> or <vid2>) was set
+                # assume the node was set for the template vertex <vid1>
+                if vid2 in nodes:
+                    v1, v2 = v2, v1
+                self.extendNode(v1, v2, o, bm)
+    
+    def bridgeNodes(self, vid1, vid2, o, bm, dissolveEndEdges):
+        """
+        Bridge open edge loops from the nodes set for the template vertices <vid1> and <vid2>
+        """
+        layer = bm.verts.layers.deform[0]
+        groupIndices = set( (o.vertex_groups["e_" + vid1 + "_" +vid2].index, o.vertex_groups["e_" + vid2 + "_" +vid1].index) )
+        # We will bridge two edge loops (either open or closed) composed of the vertices belonging to
+        # the vertex groups with the indices from <groupIndices>
+        
+        # For each vertex group index in <groupIndices> get a single vertex belonging
+        # to the related vertex group
+        verts = {}
+        for _v in bm.verts:
+            vert = None
+            for i in groupIndices:
+                if i in _v[layer]:
+                    vert = _v
+                    break
+            if vert:
+                verts[i] = vert
+                groupIndices.remove(i)
+                if not groupIndices:
+                    break
+        # for each key in <verts> (the key is actually a vertex group index) get edges to bridge
+        edges = []
+        for i in verts:
+            _edges = []
+            edges.append(_edges)
+            vert = verts[i]
+            _v = vert
+            # the last visited edge
+            edge = None
+            while True:
+                for e in _v.link_edges:
+                    if e == edge:
+                        continue
+                    # a candidate for the next vertex
+                    # 'vn' stands for 'vertex next'
+                    _vn =  e.verts[1] if e.verts[0] == _v else e.verts[0]
+                    if i in _vn[layer]:
+                        # keep the reference to the initial edge (needed for the case of open edge loops)
+                        if _v == vert:
+                            _edge = e
+                        _v = _vn
+                        edge = e
+                        _edges.append(edge)
                         break
-                if vert:
-                    verts[i] = vert
-                    groupIndices.remove(i)
-                    if not groupIndices:
-                        break
-            # for each key in <verts> (the key is actually a vertex group index) get edges to bridge
-            edges = []
-            for i in verts:
-                _edges = []
-                edges.append(_edges)
-                vert = verts[i]
-                _v = vert
-                # the last visited edge
-                edge = None
-                while True:
-                    for e in _v.link_edges:
-                        if e == edge:
-                            continue
-                        # a candidate for the next vertex
-                        # 'vn' stands for 'vertex next'
-                        _vn =  e.verts[1] if e.verts[0] == _v else e.verts[0]
-                        if i in _vn[layer]:
-                            # keep the reference to the initial edge (needed for the case of open edge loops)
-                            if _v == vert:
-                                _edge = e
-                            _v = _vn
-                            edge = e
-                            _edges.append(edge)
-                            break
-                    else:
-                        # the edges don't form a closed loop!
-                        # now go in the opposite direction relative to the initial vertex <vert>
-                        
-                        _v = vert
-                        # the last visited edge is the one we saved under under the variable <_edge>
-                        edge = _edge
-                        # basically the same code as above
-                        while True:
-                            for e in _v.link_edges:
-                                if e == edge:
-                                    continue
-                                # a candidate for the next vertex
-                                # 'vn' stands for 'vertex next'
-                                _vn =  e.verts[1] if e.verts[0] == _v else e.verts[0]
-                                if i in _vn[layer]:
-                                    _v = _vn
-                                    edge = e
-                                    _edges.append(edge)
-                                    break
-                            else:
+                else:
+                    # the edges don't form a closed loop!
+                    # now go in the opposite direction relative to the initial vertex <vert>
+                    
+                    _v = vert
+                    # the last visited edge is the one we saved under under the variable <_edge>
+                    edge = _edge
+                    # basically the same code as above
+                    while True:
+                        for e in _v.link_edges:
+                            if e == edge:
+                                continue
+                            # a candidate for the next vertex
+                            # 'vn' stands for 'vertex next'
+                            _vn =  e.verts[1] if e.verts[0] == _v else e.verts[0]
+                            if i in _vn[layer]:
+                                _v = _vn
+                                edge = e
+                                _edges.append(edge)
                                 break
-                        break
-                    if _v == vert:
-                        break
-            bmesh.ops.bridge_loops(bm, edges = edges[0] + edges[1])
-            if dissolveEndEdges:
-                for _edges in edges:
-                    bmesh.ops.dissolve_edges(bm, edges=_edges, use_verts=True, use_face_split=False)
+                        else:
+                            break
+                    break
+                if _v == vert:
+                    break
+        bmesh.ops.bridge_loops(bm, edges = edges[0] + edges[1])
+        if dissolveEndEdges:
+            for _edges in edges:
+                bmesh.ops.dissolve_edges(bm, edges=_edges, use_verts=True, use_face_split=False)
+    
+    def extendNode(self, vert, toVert, o, bm):
+        """
+        Extend the open edge loop from the node set for the template vertex <vert> towards the template vertex <toVert>
+        """
+        vid = self.getVid(vert)
+        toVid = self.getVid(toVert)
+        
+        verts = getVertsForVertexGroup(o, bm, o.vertex_groups["e_" + vid + "_" +toVid].name)
+        
+        # perform translation of <verts> along the vector defined by the vertices <vid> and <toVid>
+        
+        # unit vector for the line defined by the vertices <vid> and <toVid>
+        e = (toVert.co - vert.co).normalized()
+        # We need to take into account offset when calculating the amount of translation,
+        # so pick up an arbitrary vertex from <verts>, get a vector by
+        # subtracting <vert.co> and project that vector onto the line defined by
+        # the vertices <vert> and <toVert> to calculate the offset relative to the vertex <vert>
+        bmesh.ops.translate(
+            bm,
+            verts=getVertsForVertexGroup(o, bm, o.vertex_groups["e_" + vid + "_" +toVid].name),
+            vec=toVert.co - vert.co - projectOntoLine(verts[0].co - vert.co, e)
+        )
     
     def makeSurfaces(self, o, bm):
         # sverts stands for surface verts

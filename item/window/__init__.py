@@ -70,23 +70,24 @@ class Window(Opening):
             j = bpy.data.objects[_o[vid]]
             t.setNode(v, j, o, context)
             numVerts += 1
+        # final operations: bridging or extruding edges loops of the nodes, making surfaces
+        bm = getBmesh(o)
+        t.bridgeOrExtendNodes(o, bm, kwargs["dissolveEndEdges"])
         if numVerts == len(verts):
-            bm = getBmesh(o)
-            t.bridgeNodes(o, bm, kwargs["dissolveEndEdges"])
             t.makeSurfaces(o, bm)
-            setBmesh(o, bm)
-            
-            # remove unneeded vertex group
-            groups = [g for g in o.vertex_groups if g.name[0]=="e" or g.name[0]=="s"]
-            for g in groups:
-                o.vertex_groups.remove(g)
-            
-            # add Edge Split modifier
-            if kwargs["addEdgeSplitModifier"]:
-                addEdgeSplitModifier(o, o.name)
-            
-            # hide the template Blender object
-            t.o.hide = True
+        setBmesh(o, bm)
+        
+        # remove unneeded vertex group
+        groups = [g for g in o.vertex_groups if g.name[0]=="e" or g.name[0]=="s"]
+        for g in groups:
+            o.vertex_groups.remove(g)
+        
+        # add Edge Split modifier
+        if kwargs["addEdgeSplitModifier"]:
+            addEdgeSplitModifier(o, o.name)
+        
+        # hide the template Blender object
+        t.o.hide = True
 
 
 pContext.register(Window, GuiWindow)
