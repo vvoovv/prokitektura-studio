@@ -70,6 +70,7 @@ class Window(Opening):
             j = bpy.data.objects[_o[vid]]
             t.setNode(v, j, o, context)
             numVerts += 1
+        
         # final operations: bridging or extruding edges loops of the nodes, making surfaces
         bm = getBmesh(o)
         t.bridgeOrExtendNodes(o, bm, kwargs["dissolveEndEdges"])

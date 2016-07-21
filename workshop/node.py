@@ -4,6 +4,9 @@ from base import zero2, zeroVector
 from util import acos
 from util.blender import getBmesh, setBmesh, setVertexGroupName, getVertsForVertexGroup
 
+# value of the shape key offset for the shape key value equal to 1.
+shapeKeyOffset = 0.05 # 5cm
+
 
 def is90degrees(cos):
     return abs(cos) < zero2
@@ -324,7 +327,32 @@ class LNode(Node):
             matrix = mathutils.Matrix.Shear('XY', 4, (shearFactor, 0.)),
             verts = getVertsForVertexGroup(o, bm, "c")
         )
+        # Set BMesh here to get the correct result in the next section
+        # of the code related to the shape key update
         setBmesh(o, bm)
+        
+        # update shape key data (if available) for the vertices of the vertex group <c>
+        shape_keys = o.data.shape_keys
+        if shape_keys:
+            if shape_keys.key_blocks.get("frame_width", None):
+                bm = getBmesh(o)
+                
+                shapeKey = bm.verts.layers.shape.get("frame_width")
+                _edges = self._edges
+                # the bisector of the edges after the shear transformation
+                bisector = mathutils.Matrix.Rotation(
+                    angle/2. - math.pi/4. if convex else 0.75*math.pi - angle/2.,
+                    3,
+                    self.n
+                ) * (_edges[0][0] + _edges[1][0]).normalized()
+                # offset vector for the shape key
+                offset = shapeKeyOffset / math.sin(angle/2.) * bisector
+                for v in getVertsForVertexGroup(o, bm, "c"):
+                    # check if the vertex changes its location for the shape key
+                    if ( (v[shapeKey] - v.co).length > zero2):
+                        v[shapeKey] = v.co + offset
+                
+                setBmesh(o, bm)
 
 
 class TNode(Node):
