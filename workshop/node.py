@@ -7,6 +7,9 @@ from util.blender import getBmesh, setBmesh, setVertexGroupName, getVertsForVert
 # value of the shape key offset for the shape key value equal to 1.
 shapeKeyOffset = 0.05 # 5cm
 
+# the base bisector is needed for the correct operation of the shear transformation in LNode.shear(..)
+baseBisector = mathutils.Vector((1., 0., 1.)).normalized()
+
 
 def is90degrees(cos):
     return abs(cos) < zero2
@@ -315,6 +318,8 @@ class LNode(Node):
         if angle is None or not "c" in o.vertex_groups:
             return
         
+        _edges = self._edges
+        
         convex = self.edges[1][3]
         bm = getBmesh(o)
         shearFactor = 1./math.tan(angle/2.)
@@ -322,10 +327,28 @@ class LNode(Node):
             shearFactor = shearFactor - 1.
         else:
             shearFactor = -shearFactor - 1.
+        
+        # For the share transformation of the central part defined by the vertex group <c>
+        # we may have to provide a space matrix, since the parameters of the share transformation are
+        # defined under assumtions that the central part defined by the vertex group <c> is oriented
+        # along the <baseBisector>. So the <space> matrix defines the rotation that orients
+        # the actual bisector along the <baseBisector>
+        bisector = (_edges[0][0] + _edges[1][0]).normalized()
+        dot = bisector.dot(baseBisector)
+        # check if <bisector> and <baseBisector> are already aligned
+        if abs(1-dot) > zero2:
+            _angle = acos(dot)
+            if self.n.dot( bisector.cross(baseBisector) ) < 0.:
+                _angle = -_angle
+            spaceMatrix = mathutils.Matrix.Rotation(_angle, 4, self.n)
+        else:
+            spaceMatrix = mathutils.Matrix.Identity(4)
+        
         bmesh.ops.transform(
             bm,
             matrix = mathutils.Matrix.Shear('XY', 4, (shearFactor, 0.)),
-            verts = getVertsForVertexGroup(o, bm, "c")
+            verts = getVertsForVertexGroup(o, bm, "c"),
+            space = spaceMatrix
         )
         # Set BMesh here to get the correct result in the next section
         # of the code related to the shape key update
@@ -338,13 +361,12 @@ class LNode(Node):
                 bm = getBmesh(o)
                 
                 shapeKey = bm.verts.layers.shape.get("frame_width")
-                _edges = self._edges
                 # the bisector of the edges after the shear transformation
                 bisector = mathutils.Matrix.Rotation(
                     angle/2. - math.pi/4. if convex else 0.75*math.pi - angle/2.,
                     3,
                     self.n
-                ) * (_edges[0][0] + _edges[1][0]).normalized()
+                ) * bisector
                 # offset vector for the shape key
                 offset = shapeKeyOffset / math.sin(angle/2.) * bisector
                 for v in getVertsForVertexGroup(o, bm, "c"):
