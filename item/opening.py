@@ -199,7 +199,7 @@ class Opening(Item):
         setBmesh(o, bm)
         
         # remove unneeded vertex group
-        groups = [g for g in o.vertex_groups if g.name[0]=="e" or g.name[0]=="s"]
+        groups = [g for g in o.vertex_groups if g.name[0] in ("e", "s", "c")]
         for g in groups:
             o.vertex_groups.remove(g)
         
