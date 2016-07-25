@@ -1,8 +1,7 @@
 import bpy
-from base import zeroVector
+from base import zeroVector, pContext
 from util.blender import createEmptyObject
 from .template import Template
-from item.window import Window
 
 
 class WorkshopStartTemplate(bpy.types.Operator):
@@ -107,12 +106,16 @@ class WorkshopMakeItem(bpy.types.Operator):
         return context.mode == 'OBJECT'
     
     def execute(self, context):
+        if not context.scene.prk.workshopType in pContext.items:
+            return {'FINISHED'}
         self.makeParts(Template(context.object).getTopParent(), context)
         return {'FINISHED'}
     
     def makeParts(self, template, context):
         bpy.ops.object.select_all(action='DESELECT')
-        Window(context, self).make(
+        # a class for the item in question
+        Item = pContext.items[context.scene.prk.workshopType][0]
+        Item(context, self).make(
             template,
             addEdgeSplitModifier = self.addEdgeSplitModifier,
             dissolveEndEdges = self.dissolveEndEdges
