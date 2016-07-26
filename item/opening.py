@@ -188,7 +188,7 @@ class Opening(Item):
                 continue
             # Blender object for the node at the vertex
             j = bpy.data.objects[_o[vid]]
-            t.setNode(v, j, o, context)
+            t.setNode(v, j, o, context, hooksForNodes = kwargs["hooksForNodes"])
             numVerts += 1
         
         # final operations: bridging or extruding edges loops of the nodes, making surfaces

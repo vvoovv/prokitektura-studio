@@ -101,6 +101,12 @@ class WorkshopMakeItem(bpy.types.Operator):
         default = True
     )
     
+    hooksForNodes = bpy.props.BoolProperty(
+        name = "Add HOOK modifier for nodes",
+        description = "Add a HOOK modifier for the vertices of each Blender object used as a node",
+        default = True
+    )
+    
     @classmethod
     def poll(cls, context):
         return context.mode == 'OBJECT'
@@ -118,7 +124,8 @@ class WorkshopMakeItem(bpy.types.Operator):
         Item(context, self).make(
             template,
             addEdgeSplitModifier = self.addEdgeSplitModifier,
-            dissolveEndEdges = self.dissolveEndEdges
+            dissolveEndEdges = self.dissolveEndEdges,
+            hooksForNodes = self.hooksForNodes
         )
         for t in template.getChildren():
             self.makeParts(t, context)

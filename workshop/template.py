@@ -1,6 +1,7 @@
 import mathutils, bpy, bmesh
 from base import zero2, zeroVector
-from util.blender import createMeshObject, getBmesh, setBmesh, parent_set, assignGroupToVerts, getVertsForVertexGroup
+from util.blender import createMeshObject, getBmesh, setBmesh,\
+    parent_set, assignGroupToVerts, getVertsForVertexGroup, createEmptyObject, addHookModifier
 from util.geometry import projectOntoPlane, projectOntoLine, isVectorBetweenVectors
 
 
@@ -107,6 +108,10 @@ class SurfaceVerts:
         # located between vectors <vec1> and <vec2>
         # If <tv>, <vec1> and <vec2> aren't given, a random surface vertex and its vid are returned
         sverts = self.sverts
+        # check if there is any layer in <sverts>
+        if not len(sverts):
+            return None, None
+        
         if self.sl is None:
             # set the current surface layer
             self.sl = next(iter(sverts))
@@ -114,7 +119,7 @@ class SurfaceVerts:
         vid = self.template.getVid(tv) if tv else next(iter(sverts[sl]))
         # if the template vertex <tv> is given, it may not have a related surface vertex
         if not vid in sverts[sl]:
-            return None, None 
+            return None, None
         if len(sverts[sl][vid]) == 1:
             v = sverts[sl][vid][0]
             del sverts[sl][vid]
@@ -360,10 +365,11 @@ class Template:
                 children.append(Template(o, self))
         return children
     
-    def setNode(self, v, n, parent, context):
+    def setNode(self, v, n, parent, context, **kwargs):
         """
         Set a node Blender object <n> for the template vertex <v>
         """
+        hooksForNodes = kwargs["hooksForNodes"]
         # node wrapper
         nw = self.getNodeWrapper(v)
         if not nw.setBlenderObject(n):
@@ -378,12 +384,24 @@ class Template:
         loc = v.co.copy()
         loc += self.getOffset(v, vid)
         _n = n
-        n = createMeshObject(n.name, loc, _n.data)
+        n = createMeshObject(n.name, loc, _n.data.copy())
         # copy vertex groups
         for g in _n.vertex_groups:
             n.vertex_groups.new(g.name)
+            
+        if hooksForNodes:
+            # create a vertex group to be controlled by the HOOK modifier
+            group = "n_"+vid
+            bm = getBmesh(n)
+            assignGroupToVerts(n, bm.verts.layers.deform[0], group, *bm.verts)
+            setBmesh(n, bm)
+            # create an EMPTY object and use it in the HOOK modifier
+            hookObj = createEmptyObject(group, loc, False, empty_draw_type='PLAIN_AXES', empty_draw_size=0.01)
+            
         context.scene.update()
         parent_set(parent, n)
+        if hooksForNodes:
+            parent_set(parent.parent, hookObj)
         context.scene.update()
         
         nw.updateVertexGroupNames(n, self)
@@ -396,6 +414,9 @@ class Template:
         # <parent> is also the current Blender active object
         parent.select = True
         bpy.ops.object.join()
+        
+        if hooksForNodes:
+            addHookModifier(parent, group, hookObj, group)
         
         parent.select = False
     

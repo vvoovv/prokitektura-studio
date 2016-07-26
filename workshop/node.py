@@ -293,9 +293,6 @@ class LNode(Node):
         
         angle = acos(cos)
         
-        # create a single-user copy of the mesh data
-        o.data = o.data.copy()
-        
         bm = getBmesh(o)
         bmesh.ops.rotate(
             bm,
