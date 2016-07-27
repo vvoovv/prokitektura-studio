@@ -369,7 +369,8 @@ class Template:
         """
         Set a node Blender object <n> for the template vertex <v>
         """
-        hooksForNodes = kwargs["hooksForNodes"]
+        # we don't need to set hooks for the very top template
+        hooksForNodes = self.parentTemplate and kwargs["hooksForNodes"]
         # node wrapper
         nw = self.getNodeWrapper(v)
         if not nw.setBlenderObject(n):
