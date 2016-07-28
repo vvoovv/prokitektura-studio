@@ -369,8 +369,12 @@ class Template:
         """
         Set a node Blender object <n> for the template vertex <v>
         """
-        # we don't need to set hooks for the very top template
-        hooksForNodes = self.parentTemplate and kwargs["hooksForNodes"]
+        # We don't need to set hooks for the very top template
+        # We also don't need to set hooks if the parent mesh correspoding to the parent template
+        # doesn't have a shape key <frame_width>
+        pt = self.parentTemplate
+        hooksForNodes = pt and kwargs["hooksForNodes"] and pt.meshObject.data.shape_keys and\
+            "frame_width" in pt.meshObject.data.shape_keys.key_blocks
         # node wrapper
         nw = self.getNodeWrapper(v)
         if not nw.setBlenderObject(n):

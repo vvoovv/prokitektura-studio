@@ -169,6 +169,8 @@ class Opening(Item):
         t.meshParent = p
         # start a Blender object for the template
         o = createMeshObject(name + "_mesh")
+        t.meshObject = o
+        
         context.scene.update()
         # perform parenting
         parent_set(p, o)
