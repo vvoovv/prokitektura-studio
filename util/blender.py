@@ -211,3 +211,33 @@ def getLastOperator(context=None):
         context = bpy.context
     wm = context.window_manager
     return wm.operators[-1] if len(wm.operators) else None
+
+
+################################################
+# Utility functions to set variables for drivers
+################################################
+def addTransformsVariable(driver, name, id0, transform_type):
+    v = driver.driver.variables.new()
+    v.name = name
+    v.type = "TRANSFORMS"
+    v.targets[0].id = id0
+    v.targets[0].transform_type = transform_type
+    v.targets[0].transform_space = "LOCAL_SPACE"
+
+
+def addSinglePropVariable(driver, name, id0, data_path):
+    v = driver.driver.variables.new()
+    v.name = name
+    v.type = "SINGLE_PROP"
+    v.targets[0].id = id0
+    v.targets[0].data_path = data_path
+
+
+def addLocDiffVariable(driver, name, id0, id1):
+        v = driver.driver.variables.new()
+        v.name = name
+        v.type = "LOC_DIFF"
+        v.targets[0].id = id0
+        v.targets[0].transform_space = "LOCAL_SPACE"
+        v.targets[1].id = id1
+        v.targets[1].transform_space = "LOCAL_SPACE"

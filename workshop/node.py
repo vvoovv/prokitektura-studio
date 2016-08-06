@@ -1,8 +1,9 @@
 import math
 import bpy, bmesh, mathutils
 from base import zero2, zeroVector
-from util import acos
+from util import acos, is90degrees, is180degrees
 from util.blender import getBmesh, setBmesh, setVertexGroupName, getVertsForVertexGroup
+
 
 # value of the shape key offset for the shape key value equal to 1.
 shapeKeyOffset = 0.05 # 5cm
@@ -11,21 +12,13 @@ shapeKeyOffset = 0.05 # 5cm
 baseBisector = mathutils.Vector((1., 0., 1.)).normalized()
 
 
-def is90degrees(cos):
-    return abs(cos) < zero2
-
-
-def is180degrees(cos):
-    return abs(cos+1) < zero2
-
-
 class Node:
     """
     self.edges (list): An ordered list of entries for edges of the template vertex.
         The list starts from the entry for the base edge. Each entry of the list is
         a list itself with 4 entries:
         (0) Unit vector along the edge the starts at the template vertex
-        (1) Opposite vertex (BMvert) of the edge
+        (1) Opposite vertex (BMVert) of the edge
         (2) Boolean variable that defines in which circle half the edge is located (not available for LNode)
         (3) Cosine of the angle between the edge and the base edge (not available for LNode)
     """

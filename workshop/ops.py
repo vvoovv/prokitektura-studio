@@ -129,6 +129,7 @@ class WorkshopMakeItem(bpy.types.Operator):
         )
         for t in template.getChildren():
             self.makeParts(t, context)
+        template.bm.free()
 
 
 class WorkshopSetChildOffset(bpy.types.Operator):

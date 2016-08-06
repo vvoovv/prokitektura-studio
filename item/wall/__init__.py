@@ -14,33 +14,6 @@ def getWallFromEmpty(context, op, empty, end=False):
     return wall
 
 
-def addTransformsVariable(driver, name, id0, transform_type):
-    v = driver.driver.variables.new()
-    v.name = name
-    v.type = "TRANSFORMS"
-    v.targets[0].id = id0
-    v.targets[0].transform_type = transform_type
-    v.targets[0].transform_space = "LOCAL_SPACE"
-
-
-def addSinglePropVariable(driver, name, id0, data_path):
-    v = driver.driver.variables.new()
-    v.name = name
-    v.type = "SINGLE_PROP"
-    v.targets[0].id = id0
-    v.targets[0].data_path = data_path
-
-
-def addLocDiffVariable(driver, name, id0, id1):
-        v = driver.driver.variables.new()
-        v.name = name
-        v.type = "LOC_DIFF"
-        v.targets[0].id = id0
-        v.targets[0].transform_space = "LOCAL_SPACE"
-        v.targets[1].id = id1
-        v.targets[1].transform_space = "LOCAL_SPACE"
-
-
 def addSegmentDrivers(e, e0, e1):
     # add driver for empty.location.x
     x = e.driver_add("location", 0)

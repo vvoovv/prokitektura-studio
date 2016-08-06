@@ -23,7 +23,7 @@ class Extruded(Item):
         numControls = len(controls)
         for i in range(numControls):
             c = controls[i]
-            corner = Corner(c.location, controls[i-1].location, controls[(i+1)%numControls].location)
+            corner = Corner(c.location, pVert = controls[i-1].location, nVert = controls[(i+1)%numControls].location)
             group = c["g"]
             for p in profile:
                 v = bm.verts.new(corner.inset(p[0], p[1]))

@@ -1,7 +1,9 @@
 import mathutils, bpy, bmesh
 from base import zero2, zeroVector
+from util import is0degrees
 from util.blender import createMeshObject, getBmesh, setBmesh,\
-    parent_set, assignGroupToVerts, getVertsForVertexGroup, createEmptyObject, addHookModifier
+    parent_set, assignGroupToVerts, getVertsForVertexGroup, createEmptyObject, addHookModifier,\
+    addSinglePropVariable
 from util.geometry import projectOntoPlane, projectOntoLine, isVectorBetweenVectors
 
 
@@ -369,12 +371,69 @@ class Template:
         """
         Set a node Blender object <n> for the template vertex <v>
         """
+        from .node import shapeKeyOffset
+        from util.inset import Corner
         # We don't need to set hooks for the very top template
         # We also don't need to set hooks if the parent mesh correspoding to the parent template
         # doesn't have a shape key <frame_width>
         pt = self.parentTemplate
         hooksForNodes = pt and kwargs["hooksForNodes"] and pt.meshObject.data.shape_keys and\
             "frame_width" in pt.meshObject.data.shape_keys.key_blocks
+        if hooksForNodes:
+            # Find a pair of edges of the parent template <pt> that are oriented along the pair of outer edges of
+            # of the vertex <v> of the template in question
+            # First, find the pair of outer edges of the vertex <v> of the template in question
+            # in the same way as it's done in <self.prepareOffsets>
+            
+            # a variable for the first edge to be found
+            _e = None
+            vid = self.getVid(v)
+            # check if the vertex <v> has an outer edge
+            for e in v.link_edges:
+                if len(e.link_faces) == 1:
+                    if _e:
+                        # the second edge is simply <e>
+                        break
+                    else:
+                        # the first edge is found
+                        _e = e
+            if _e:
+                _vec = getVectorFromEdge(_e, v).normalized()
+                vec = getVectorFromEdge(e, v).normalized()
+                # the cross product of <_vec> and <vec> must point in the direction of the normal to <v>
+                if _vec.cross(vec).dot(v.normal) < 0:
+                    _e, e = e, _e
+                    _vec, vec = vec, _vec
+                if vid in pt.nodes:
+                    edges = pt.nodes[vid].edges
+                    # Iterate through <edges> to find a vector
+                    # that is oriented along <_vec>
+                    for i,e in enumerate(edges):
+                        if is0degrees(_vec.dot(e[0])):
+                            break
+                    # finally, the edges we were looking for:
+                    # <_e> corresponds to <_vec>
+                    _e = e
+                    # <e> correpsonds to <vec>
+                    e = edges[(i+1) % len(edges)]
+                    # we need BMesh edges (BMEdge)
+                    # find BMesh loops that contains BMesh vertices <e[1]>, <pt.nodes[vid]>, <_e[1]>
+                    for l in e[1].link_loops:
+                        if l.link_loop_next.vert == pt.nodes[vid].v:
+                            break
+                    _edge = l.link_loop_next.edge
+                    edge = l.edge
+                    # We are ready to set the width, that depends on the fact if
+                    # an edge of the parent template is outer or inner one
+                    _w = shapeKeyOffset if len(_edge.link_faces)==1 else shapeKeyOffset/2.
+                    w = shapeKeyOffset if len(edge.link_faces)==1 else shapeKeyOffset/2.
+                    
+            else:
+                # <_e> is None means that <v> is internal vertex of the template in question,
+                # we don't need to set hooks in that case
+                hooksForNodes = False
+                
+         
         # node wrapper
         nw = self.getNodeWrapper(v)
         if not nw.setBlenderObject(n):
@@ -402,6 +461,17 @@ class Template:
             setBmesh(n, bm)
             # create an EMPTY object and use it in the HOOK modifier
             hookObj = createEmptyObject(group, loc, False, empty_draw_type='PLAIN_AXES', empty_draw_size=0.01)
+            dataPath = "data.shape_keys.key_blocks[\"frame_width\"].value"
+            driverExpressionX, driverExpressionZ = Corner(v.co, v.normal, vec1 = _e[0], vec2 = e[0], evenInset = False).getDriverExpressions(loc.x, loc.z, _w, w)
+            # add drivers for <hookObj> that depend on the shape key <frame_width>
+            # x
+            x = hookObj.driver_add("location", 0)
+            addSinglePropVariable(x, "fw", pt.meshObject, dataPath)
+            x.driver.expression = driverExpressionX
+            # z
+            z = hookObj.driver_add("location", 2)
+            addSinglePropVariable(z, "fw", pt.meshObject, dataPath)
+            z.driver.expression = driverExpressionZ
             
         context.scene.update()
         parent_set(parent, n)
@@ -426,7 +496,7 @@ class Template:
         parent.select = False
     
     def getNodeWrapper(self, v):
-        from workshop.node import LNode, TNode, YNode, CrossNode, XNode
+        from .node import LNode, TNode, YNode, CrossNode, XNode
         numEdges = len(v.link_edges)
         edges = getEdges(v)
         if numEdges == 2:
