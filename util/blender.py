@@ -241,3 +241,25 @@ def addLocDiffVariable(driver, name, id0, id1):
         v.targets[0].transform_space = "LOCAL_SPACE"
         v.targets[1].id = id1
         v.targets[1].transform_space = "LOCAL_SPACE"
+
+
+#############
+# BMesh stuff
+#############
+def getOuterEdges(v):
+    """
+    Get outer <BMEdge>s for the <BMVert> <v>
+    
+    Returns:
+        A tuple of outer <BMEdge>
+    """
+    _e, e = None, None
+    for e in v.link_edges:
+        if len(e.link_faces) == 1:
+            if _e:
+                # the second edge is simply <e>
+                break
+            else:
+                # the first edge is found
+                _e = e
+    return _e, e

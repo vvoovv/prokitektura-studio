@@ -92,7 +92,7 @@ class Node:
         The other edges are arranged in the counterclockwise order starting from the base edge.
         
         Returns:
-        A tuple of arranged edges
+            A tuple of arranged edges
         """
         from operator import itemgetter
         # Add two extra elements to each entry of <edges> to perform one-line sorting
@@ -133,7 +133,7 @@ class Node:
         Transform the Blender object <o> as a node, e.g. rotate and shear it appropriately
         
         Returns:
-        The resulting matrix for the transformation
+            The resulting matrix for the transformation
         """
         matrix = None
         # calculate rotation angle

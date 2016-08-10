@@ -1,9 +1,7 @@
 import mathutils, bpy, bmesh
 from base import zero2, zeroVector
 from util import is0degrees
-from util.blender import createMeshObject, getBmesh, setBmesh,\
-    parent_set, assignGroupToVerts, getVertsForVertexGroup, createEmptyObject, addHookModifier,\
-    addSinglePropVariable
+from util.blender import *
 from util.geometry import projectOntoPlane, projectOntoLine, isVectorBetweenVectors
 
 
@@ -385,26 +383,19 @@ class Template:
             # First, find the pair of outer edges of the vertex <v> of the template in question
             # in the same way as it's done in <self.prepareOffsets>
             
-            # a variable for the first edge to be found
-            _e = None
             vid = self.getVid(v)
-            # check if the vertex <v> has an outer edge
-            for e in v.link_edges:
-                if len(e.link_faces) == 1:
-                    if _e:
-                        # the second edge is simply <e>
-                        break
-                    else:
-                        # the first edge is found
-                        _e = e
+            # outer edges for the vertex <v>
+            _e, e = getOuterEdges(v)
             if _e:
-                _vec = getVectorFromEdge(_e, v).normalized()
-                vec = getVectorFromEdge(e, v).normalized()
-                # the cross product of <_vec> and <vec> must point in the direction of the normal to <v>
-                if _vec.cross(vec).dot(v.normal) < 0:
-                    _e, e = e, _e
-                    _vec, vec = vec, _vec
                 if vid in pt.nodes:
+                    _vec = getVectorFromEdge(_e, v).normalized()
+                    vec = getVectorFromEdge(e, v).normalized()
+                    # the cross product of <_vec> and <vec> must point in the direction of the normal to <v>
+                    # (note: the cross product doesn't have sense if <_vec> and <vec> are collinear,
+                    # but this normally happens if <not vid in pt.nodes>)
+                    if _vec.cross(vec).dot(v.normal) < 0:
+                        _e, e = e, _e
+                        _vec, vec = vec, _vec
                     edges = pt.nodes[vid].edges
                     # Iterate through <edges> to find a vector
                     # that is oriented along <_vec>
@@ -427,7 +418,54 @@ class Template:
                     # an edge of the parent template is outer or inner one
                     _w = shapeKeyOffset if len(_edge.link_faces)==1 else shapeKeyOffset/2.
                     w = shapeKeyOffset if len(edge.link_faces)==1 else shapeKeyOffset/2.
-                    
+                else:
+                    # Find a <BMLoop> that contains the vertex <v> and either of the edges <_e> or <e>;
+                    # it will be used to find a perpenducular to the edge looking inside the related face
+                    for l in v.link_loops:
+                        if l.edge == _e:
+                            break
+                        elif l.edge == e:
+                            # exchange the values between <_e> and <e>
+                            _e, e = e, _e
+                            break
+                    # vector along the <BMLoop>'s edge (i.e. <_e>)
+                    _vec = getVectorFromEdge(_e, v).normalized()
+                    # Starting from the vert <v> walk in the direction of <_e> and <e> to
+                    # find an outer edge of the template which vertex have the related counterpart
+                    # with the same <vid> in the parent template
+                    def walkTillParentVertex(v, _e, template, parentTemplate):
+                        """
+                        See the description above
+                        Args:
+                            v (BMVert): A vertex to start the walk from
+                            _e (BMEdge): An edge specifying the direction of the walk
+                            template: A template
+                            parentTemplate: The parent template for the <template>
+                        """
+                        while True:
+                            # get the other vertex for the edge <_e>
+                            v = _e.verts[1] if _e.verts[0] == v else _e.verts[0]
+                            # <pv> stands for <parent vertex>
+                            pv = parentTemplate.nodes.get(template.getVid(v), None)
+                            if pv:
+                                return pv.v
+                            # get the other outer edge for the vertex <_v>
+                            for e in v.link_edges:
+                                if e != _e and len(e.link_faces) == 1:
+                                    _e = e
+                                    break
+                    # <pv> stands for <parent vertex>
+                    # walking in the direction of the edge <_e>
+                    pv1 = walkTillParentVertex(v, _e, self, pt)
+                    # walking in the direction of the edge <e>
+                    pv2 = walkTillParentVertex(v, e, self, pt)
+                    # get a <BMEdge> that contains both <pv1> and <pv2>
+                    for _e in pv1.link_edges:
+                        if _e.verts[0] == pv2 or _e.verts[1] == pv2:
+                            break
+                    # We are ready to set the width, that depends on the fact if
+                    # an edge of the parent template is outer or inner one
+                    w = shapeKeyOffset if len(_e.link_faces)==1 else shapeKeyOffset/2.
             else:
                 # <_e> is None means that <v> is internal vertex of the template in question,
                 # we don't need to set hooks in that case
@@ -462,17 +500,22 @@ class Template:
             # create an EMPTY object and use it in the HOOK modifier
             hookObj = createEmptyObject(group, loc, False, empty_draw_type='PLAIN_AXES', empty_draw_size=0.01)
             dataPath = "data.shape_keys.key_blocks[\"frame_width\"].value"
-            driverExpressionX, driverExpressionZ = Corner(v.co, v.normal, vec1 = _e[0], vec2 = e[0], evenInset = False).getDriverExpressions(loc.x, loc.z, _w, w)
             # add drivers for <hookObj> that depend on the shape key <frame_width>
             # x
             x = hookObj.driver_add("location", 0)
             addSinglePropVariable(x, "fw", pt.meshObject, dataPath)
-            x.driver.expression = driverExpressionX
             # z
             z = hookObj.driver_add("location", 2)
             addSinglePropVariable(z, "fw", pt.meshObject, dataPath)
-            z.driver.expression = driverExpressionZ
-            
+            if vid in pt.nodes:
+                driverExpressionX, driverExpressionZ = Corner(v.co, v.normal, vec1 = _e[0], vec2 = e[0], evenInset = False).getDriverExpressions(loc.x, loc.z, _w, w)
+                x.driver.expression = driverExpressionX
+                z.driver.expression = driverExpressionZ
+            else:
+                # move <hookObj> along the normal to <_vec>
+                normal = v.normal.cross(_vec)
+                x.driver.expression = str(w*normal.x) + "*fw"
+                z.driver.expression = str(w*normal.z) + "*fw"
         context.scene.update()
         parent_set(parent, n)
         if hooksForNodes:
