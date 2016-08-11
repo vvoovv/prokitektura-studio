@@ -514,8 +514,8 @@ class Template:
             else:
                 # move <hookObj> along the normal to <_vec>
                 normal = v.normal.cross(_vec)
-                x.driver.expression = str(w*normal.x) + "*fw"
-                z.driver.expression = str(w*normal.z) + "*fw"
+                x.driver.expression = str(loc.x) + "+" + str(w*normal.x) + "*fw"
+                z.driver.expression = str(loc.z) + "+" + str(w*normal.z) + "*fw"
         context.scene.update()
         parent_set(parent, n)
         if hooksForNodes:
