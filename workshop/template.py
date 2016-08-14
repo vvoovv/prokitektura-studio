@@ -428,11 +428,10 @@ class Template:
                             # exchange the values between <_e> and <e>
                             _e, e = e, _e
                             break
-                    # vector along the <BMLoop>'s edge (i.e. <_e>)
-                    _vec = getVectorFromEdge(_e, v).normalized()
                     # Starting from the vert <v> walk in the direction of <_e> and <e> to
                     # find an outer edge of the template which vertex have the related counterpart
-                    # with the same <vid> in the parent template
+                    # with the same <vid> in the parent template.
+                    # During the walk the direction of the edge must not change!
                     def walkTillParentVertex(v, _e, template, parentTemplate):
                         """
                         See the description above
@@ -442,9 +441,19 @@ class Template:
                             template: A template
                             parentTemplate: The parent template for the <template>
                         """
+                        # the unit vector along the current edge
+                        _n = None
                         while True:
+                            _v = v
                             # get the other vertex for the edge <_e>
                             v = _e.verts[1] if _e.verts[0] == v else _e.verts[0]
+                            # the unit vector along the edge defined by <_v> and <v>
+                            n = (v.co - _v.co).normalized()
+                            # check if the direction of the edge has been changed
+                            if _n and abs(1.-_n.dot(n)) > zero2:
+                                # the direction of the edge has been changed!
+                                return None
+                            _n = n
                             # <pv> stands for <parent vertex>
                             pv = parentTemplate.nodes.get(template.getVid(v), None)
                             if pv:
@@ -459,13 +468,25 @@ class Template:
                     pv1 = walkTillParentVertex(v, _e, self, pt)
                     # walking in the direction of the edge <e>
                     pv2 = walkTillParentVertex(v, e, self, pt)
-                    # get a <BMEdge> that contains both <pv1> and <pv2>
-                    for _e in pv1.link_edges:
-                        if _e.verts[0] == pv2 or _e.verts[1] == pv2:
-                            break
-                    # We are ready to set the width, that depends on the fact if
-                    # an edge of the parent template is outer or inner one
-                    w = shapeKeyOffset if len(_e.link_faces)==1 else shapeKeyOffset/2.
+                    if pv1 and pv2:
+                        # vector along the <BMLoop>'s edge (i.e. <_e>)
+                        _vec = getVectorFromEdge(_e, v).normalized()
+                        # get a <BMEdge> that contains both <pv1> and <pv2>
+                        for _e in pv1.link_edges:
+                            if _e.verts[0] == pv2 or _e.verts[1] == pv2:
+                                break
+                        # We are ready to set the width, that depends on the fact if
+                        # an edge of the parent template is outer or inner one
+                        w = shapeKeyOffset if len(_e.link_faces)==1 else shapeKeyOffset/2.
+                    elif pv1 or pv2:
+                        if pv2:
+                            _e = e
+                        # the <BMEdge> in question has only one <BMLoop>, since it's the outer edge
+                        _vec = getVectorFromEdge(_e, _e.link_loops[0].vert).normalized()
+                        # the related edge is the outer edge
+                        w = shapeKeyOffset
+                    else:
+                        hooksForNodes = False
             else:
                 # <_e> is None means that <v> is internal vertex of the template in question,
                 # we don't need to set hooks in that case
