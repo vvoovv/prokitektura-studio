@@ -1,6 +1,6 @@
 import bpy
 from base import zeroVector, pContext
-from util.blender import createEmptyObject
+from util.blender import createEmptyObject, makeActiveSelected
 from .template import Template
 
 
@@ -109,12 +109,18 @@ class WorkshopMakeItem(bpy.types.Operator):
     
     @classmethod
     def poll(cls, context):
-        return context.mode == 'OBJECT'
+        return context.mode == 'OBJECT' and context.object and "t" in context.object
     
     def execute(self, context):
         if not context.scene.prk.workshopType in pContext.items:
             return {'FINISHED'}
-        self.makeParts(Template(context.object).getTopParent(), context)
+        parent = context.object
+        # getting the parent template (i.e. it doesn't contain the custom attribute <p>)
+        for o in parent.children:
+            if not "p" in o:
+                self.makeParts(Template(o), context)
+                makeActiveSelected(context, parent)
+                break
         return {'FINISHED'}
     
     def makeParts(self, template, context):
@@ -157,6 +163,5 @@ class WorkshopSetChildOffset(bpy.types.Operator):
         
         # make <childOffset> the active object
         o.select = False
-        childOffset.select = True
-        context.scene.objects.active = childOffset
+        makeActiveSelected(context, childOffset)
         return {'FINISHED'}

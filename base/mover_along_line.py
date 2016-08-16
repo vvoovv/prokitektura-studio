@@ -1,7 +1,7 @@
 import math
 import bpy
 
-from util.blender import createEmptyObject, parent_set
+from util.blender import createEmptyObject, parent_set, makeActiveSelected
 from item.wall import addTransformsVariable, addAttachedDrivers
 
 class Mover:
@@ -30,8 +30,7 @@ class Mover:
         addTransformsVariable(y, "y", master, "LOC_Y")
         y.driver.expression = "y"
         
-        master.select = True
-        context.scene.objects.active = master
+        makeActiveSelected(context, master)
     
     def start(self):
         bpy.ops.transform.translate('INVOKE_DEFAULT', constraint_axis=(True, False, False), constraint_orientation='LOCAL')

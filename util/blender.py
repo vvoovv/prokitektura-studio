@@ -1,6 +1,11 @@
 import bpy, bmesh
 
 
+def makeActiveSelected(context, o):
+    o.select = True
+    context.scene.objects.active = o
+
+
 def appendFromFile(context, filepath):
     with bpy.data.libraries.load(filepath) as (data_from, data_to):
         data_to.objects = data_from.objects

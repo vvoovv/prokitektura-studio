@@ -1,5 +1,6 @@
 import bpy, bgl
-from base import pContext, getItemfrom . import getAreaObject
+from base import pContext, getItem
+from util.blender import makeActiveSelectedfrom . import getAreaObject
 from item.wall import getWallFromEmpty
 from item.finish.flat import FinFlat
 
@@ -45,8 +46,7 @@ class AreaMake(bpy.types.Operator):
                 finish.assignUv()
         
         bpy.ops.object.select_all(action="DESELECT")
-        o.select = True
-        context.scene.objects.active = o
+        makeActiveSelected(context, o)
         return {'FINISHED'}
     
     def draw(self, context):
@@ -112,8 +112,7 @@ def area_continue(context, op, considerFinish):
 def area_finish(context, op):
     o = getAreaInstance(context, op).finish()
     bpy.ops.object.select_all(action="DESELECT")
-    o.select = True
-    context.scene.objects.active = o
+    makeActiveSelected(context, o)
 
 
 class AreaWork(bpy.types.Operator):

@@ -4,6 +4,7 @@ import bpy
 from mathutils.geometry import intersect_line_line
 
 from base import zero2, strf
+from util.blender import makeActiveSelected
 
 from item.wall import addTransformsVariable, addSegmentDrivers, addAttachedDrivers
 
@@ -108,8 +109,7 @@ class SegmentMover:
         addMoverDrivers(o1, o, p)
         addMoverDrivers(o2, o, p)
         
-        o.select = True
-        context.scene.objects.active = o
+        makeActiveSelected(context, o)
     
     def start(self):
         bpy.ops.transform.translate('INVOKE_DEFAULT', constraint_axis=(True, False, False), constraint_orientation='LOCAL')

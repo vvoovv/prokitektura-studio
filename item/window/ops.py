@@ -1,6 +1,6 @@
 import bpy
 
-from util.blender import appendFromFile
+from util.blender import appendFromFile, makeActiveSelected
 from . import Window
 from item.wall import getWallFromEmpty
 
@@ -34,8 +34,7 @@ class AddWindow(bpy.types.Operator):
         obj = appendFromFile(context, self.filepath)
         self.wall.insert(self.o, obj, Window)
         
-        bpy.context.scene.objects.active = obj
-        obj.select = True
+        makeActiveSelected(context, obj)
         # Without bpy.ops.transform.translate() some complex stuff (some modifiers)
         # may not be initialized correctly
         bpy.ops.transform.translate()

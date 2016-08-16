@@ -2,9 +2,7 @@ import bpy
 
 from base import pContext
 from base import getLevelLocation
-from util.blender import appendFromFile, getMaterial
-
-from item.wall import setWidth, getWidth, setLength, getLength
+from util.blender import appendFromFile, getMaterial, makeActiveSelected
 
 from material.texture import setTextureWidth, getTextureWidth, setTextureHeight, getTextureHeight
 
@@ -136,14 +134,31 @@ class AddItem(bpy.types.Operator):
         # mark parent object as a container
         obj["container"] = 1
         obj.location = getLevelLocation(context)
-        bpy.context.scene.objects.active = obj
-        obj.select = True
+        makeActiveSelected(context, obj)
         # Without bpy.ops.transform.translate() some complex stuff (some modifiers)
         # may not be initialized correctly
         bpy.ops.transform.translate()
         return {'FINISHED'}
 
 
+from item.window import setFrameWidth
+class PrkWindowProperties(bpy.types.PropertyGroup):
+    frame_width = bpy.props.FloatProperty(
+        name = "Frame width increment",
+        description = "Increment (positive or negative) of the default frame width from its default value",
+        min = -0.1,
+        max = 0.1,
+        step = 0.001,
+        unit = "LENGTH",
+        set = setFrameWidth,
+        default = 0.
+    )
+
+class PrkItemProperties(bpy.types.PropertyGroup):
+    window = bpy.props.PointerProperty(type=PrkWindowProperties)
+
+
+from item.wall import setWidth, getWidth, setLength, getLength
 class PrkStudioProperties(bpy.types.PropertyGroup):
     workshopType = bpy.props.EnumProperty(
         items = [
@@ -154,6 +169,7 @@ class PrkStudioProperties(bpy.types.PropertyGroup):
         description = "Workshop type (e.g. window, door, ...)",
         default = "window"                
     )
+    item = bpy.props.PointerProperty(type=PrkItemProperties)
     levelBundles = bpy.props.CollectionProperty(type=LevelBundle)
     levels = bpy.props.CollectionProperty(type=Level)
     levelIndex = bpy.props.IntProperty(

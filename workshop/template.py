@@ -245,7 +245,7 @@ class Template:
         deform = bm.verts.layers.deform
         self.layer = deform[0] if deform else deform.new()
         
-        if not kwargs.get("skipInit", None):
+        if not kwargs.get("skipInit"):
             self.nodes = {}
             self.childOffsets = ChildOffsets(self)
     
@@ -455,7 +455,7 @@ class Template:
                                 return None
                             _n = n
                             # <pv> stands for <parent vertex>
-                            pv = parentTemplate.nodes.get(template.getVid(v), None)
+                            pv = parentTemplate.nodes.get(template.getVid(v))
                             if pv:
                                 return pv.v
                             # get the other outer edge for the vertex <_v>

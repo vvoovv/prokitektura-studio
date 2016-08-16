@@ -399,11 +399,7 @@ class Wall(Item):
         setCustomAttributes(_r, l=0, m=meshIndex)
         
         bpy.ops.object.select_all(action="DESELECT")
-        if atRight:
-            l1.select = True
-        else:
-            r1.select = True
-        context.scene.objects.active = l1 if atRight else r1
+        makeActiveSelected(context, l1 if atRight else r1)
         
         return (alongX, not alongX, False)
     
@@ -832,8 +828,7 @@ class Wall(Item):
         
         # select the neighbor of <o>
         o = neighbor if neighbor else self.getNeighbor(o)
-        o.select = True
-        self.context.scene.objects.active = o
+        makeActiveSelected(self.context, o)
     
     def isAttached(self, o):
         """
