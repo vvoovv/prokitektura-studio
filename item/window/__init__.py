@@ -59,7 +59,8 @@ def getFrameWidth(self):
                     return keyBlock
             if o.children:
                 return lookup(o) 
-    # get the first encountered Blender MESH with the shape key <frame_width>perform lookup starting from <o>
+    # Get the first encountered Blender MESH with the shape key <frame_width>,
+    # perform lookup starting from <o> for that
     keyBlock = lookup(bpy.context.object)
     return shapeKeyOffset * keyBlock.value
 
