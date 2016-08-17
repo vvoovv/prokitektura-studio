@@ -50,4 +50,18 @@ def setFrameWidth(self, value):
     lookup(o)
 
 
+def getFrameWidth(self):
+    def lookup(parent):
+        for o in parent.children:
+            if o.type == "MESH" and o.data.shape_keys:
+                keyBlock = o.data.shape_keys.key_blocks.get("frame_width")
+                if keyBlock:
+                    return keyBlock
+            if o.children:
+                return lookup(o) 
+    # get the first encountered Blender MESH with the shape key <frame_width>perform lookup starting from <o>
+    keyBlock = lookup(bpy.context.object)
+    return shapeKeyOffset * keyBlock.value
+
+
 pContext.register(Window, GuiWindow)

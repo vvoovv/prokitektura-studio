@@ -141,7 +141,7 @@ class AddItem(bpy.types.Operator):
         return {'FINISHED'}
 
 
-from item.window import setFrameWidth
+from item.window import setFrameWidth, getFrameWidth
 class PrkWindowProperties(bpy.types.PropertyGroup):
     frame_width = bpy.props.FloatProperty(
         name = "Frame width increment",
@@ -150,8 +150,9 @@ class PrkWindowProperties(bpy.types.PropertyGroup):
         max = 0.1,
         step = 0.001,
         unit = "LENGTH",
+        default = 0.,
         set = setFrameWidth,
-        default = 0.
+        get = getFrameWidth
     )
 
 class PrkItemProperties(bpy.types.PropertyGroup):

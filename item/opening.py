@@ -154,6 +154,7 @@ class Opening(Item):
     def make(self, t, **kwargs):
         verts = t.bm.verts
         context = self.context
+        hooksForNodes = kwargs["hooksForNodes"]
         # template Blender object
         _o = t.o
         # Create a Blender EMPTY object to serve as a parent for the window mesh;
@@ -190,7 +191,7 @@ class Opening(Item):
                 continue
             # Blender object for the node at the vertex
             j = bpy.data.objects[_o[vid]]
-            t.setNode(v, j, o, context, hooksForNodes = kwargs["hooksForNodes"])
+            t.setNode(v, j, o, context, hooksForNodes = hooksForNodes)
             numVerts += 1
         
         # final operations: bridging or extruding edges loops of the nodes, making surfaces
@@ -208,6 +209,12 @@ class Opening(Item):
         # add Edge Split modifier
         if kwargs["addEdgeSplitModifier"]:
             addEdgeSplitModifier(o, o.name)
+            
+        # set maximum possible range for the shape keys
+        if hooksForNodes and o.data.shape_keys:
+            for kb in o.data.shape_keys.key_blocks:
+                kb.slider_min = -10.
+                kb.slider_max = 10.
         
         # hide the template Blender object
         t.o.hide = True
