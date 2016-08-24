@@ -233,6 +233,8 @@ class ChildOffsets:
 
 class Template:
     
+    type = "template"
+    
     def __init__(self, o, parentTemplate=None, **kwargs):
         self.o = o
         self.parentTemplate = parentTemplate
@@ -316,6 +318,7 @@ class Template:
             o = createMeshObject("T_Part_" + str(parentId) + "_" + str(partCounter), self.o.location+location)
             o.show_wire = True
             o.show_all_edges = True
+            o["t"] = Template.type
             o["id"] = partCounter
             # set id of the parent part
             o["p"] = parentId

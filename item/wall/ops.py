@@ -16,7 +16,7 @@ class WallEditAdd(bpy.types.Operator):
     length = bpy.props.FloatProperty(
         name = "Length",
         description = "The length of the wall segment",
-        default = 2,
+        default = 2.,
         min = 0.1,
         max = 100,
         unit = "LENGTH"

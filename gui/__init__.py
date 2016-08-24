@@ -154,10 +154,36 @@ class PrkWindowProperties(bpy.types.PropertyGroup):
         set = setFrameWidth,
         get = getFrameWidth
     )
+    assetType = bpy.props.EnumProperty(
+        items = [
+            ("handle", "handle", "handle"),
+            ("hinges", "hinges", "hinges"),
+            ("silling", "silling", "silling")
+        ],
+        name = "Asset type"
+    )
 
 class PrkItemProperties(bpy.types.PropertyGroup):
     window = bpy.props.PointerProperty(type=PrkWindowProperties)
-
+    # Lr means left or right
+    assetSideLr = bpy.props.EnumProperty(
+        items = [
+            ("l", "left", "left"),
+            ("r", "right", "right"),
+            ("n", "none", "none")
+        ],
+        name = "Asset side (left or right)"
+    )
+    # Ie means internal or external
+    assetSideIe = bpy.props.EnumProperty(
+        items = [
+            ("i", "internal", "internal"),
+            ("e", "external", "external"),
+            ("n", "none", "none")
+        ],
+        name = "Asset side (internal or external)",
+        default = "n"
+    )
 
 from item.wall import setWidth, getWidth, setLength, getLength
 class PrkStudioProperties(bpy.types.PropertyGroup):

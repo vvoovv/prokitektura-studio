@@ -1,6 +1,6 @@
 import bpy
 from base import zeroVector, pContext
-from util.blender import createEmptyObject, makeActiveSelected
+from util.blender import createEmptyObject, makeActiveSelected, appendFromFile, parent_set, showWired
 from .template import Template
 
 
@@ -18,8 +18,9 @@ class WorkshopStartTemplate(bpy.types.Operator):
     def poll(cls, context):
         return context.mode == 'OBJECT'
     
-    def invoke(self, context, event):
+    def execute(self, context):
         o = context.object
+        o["t"] = Template.type
         o.name = "T_Frame"
         o.data.name = "T_Frame"
         location = o.location.copy()
@@ -29,7 +30,8 @@ class WorkshopStartTemplate(bpy.types.Operator):
         o["id"] = 1
         # reverse the surface <s1> by default
         o["s1"] = "reversed"
-        parent = createEmptyObject(self.objectNameBase, location, True, empty_draw_type='PLAIN_AXES', empty_draw_size=0.05)
+        parent = createEmptyObject(self.objectNameBase, location, False, empty_draw_type='PLAIN_AXES', empty_draw_size=0.05)
+        parent["t"] = context.scene.prk.workshopType
         o.parent = parent
         parent["part_counter"] = 2
         parent["vert_counter"] = 1
@@ -164,4 +166,86 @@ class WorkshopSetChildOffset(bpy.types.Operator):
         # make <childOffset> the active object
         o.select = False
         makeActiveSelected(context, childOffset)
+        return {'FINISHED'}
+
+
+class WorkshopSetAssetPlaceholder(bpy.types.Operator):
+    bl_idname = "prk.workshop_set_asset_placeholder"
+    bl_label = "Set asset placeholder"
+    bl_description = "Set Blender EMPTY object as a placeholder fot the asset"
+    bl_options = {"REGISTER", "UNDO"}
+    
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'EDIT_MESH'
+    
+    def invoke(self, context, event):
+        o = context.object
+        bpy.ops.object.mode_set(mode='OBJECT')
+        # Blender EMPTY  object as a placeholder for the offset
+        a = createEmptyObject(
+            "offset_" + o.name,
+            context.scene.cursor_location - o.location,
+            False,
+            empty_draw_type='PLAIN_AXES',
+            empty_draw_size=0.01
+        )
+        a["t"] = "asset"
+        a.parent = o
+        props = context.scene.prk.item
+        # side (internal or external) for the asset
+        if props.assetSideIe != 'n':
+            # <sie> stands for side internal or external
+            a["sie"] = props.assetSideIe
+        
+        # make <a> the active object
+        o.select = False
+        makeActiveSelected(context, a)
+        return {'FINISHED'}
+
+
+class WorkshopAssignAsset(bpy.types.Operator):
+    bl_idname = "prk.workshop_assign_asset"
+    bl_label = "Assign asset..."
+    bl_description = "Assign asset to the template"
+    bl_options = {"REGISTER", "UNDO"}
+    
+    filepath = bpy.props.StringProperty(
+        subtype="FILE_PATH"
+    )
+    
+    directory = bpy.props.StringProperty(
+        subtype="DIR_PATH"
+    )
+    
+    relativePosition = bpy.props.FloatProperty(
+        name = "Relative position",
+        description = "Relative position of the asset on the template edge",
+        min = 0.,
+        max = 1.,
+        unit = "LENGTH"
+    )
+    
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'EDIT_MESH' and context.object.get("t") == Template.type
+    
+    def invoke(self, context, event):
+        o = context.object
+        
+        context.window_manager.fileselect_add(self)
+        return {"RUNNING_MODAL"}
+    
+    def execute(self, context):
+        templateObj = context.object
+        bpy.ops.object.mode_set(mode="OBJECT")
+        obj = appendFromFile(context, self.filepath)
+        obj.location = templateObj.location.copy()
+        parent_set(templateObj.parent, obj)
+        showWired(obj)
+        
+        makeActiveSelected(context, obj)
+        # Without bpy.ops.transform.translate() some complex stuff (some modifiers)
+        # may not be initialized correctly
+        bpy.ops.transform.translate()
         return {'FINISHED'}

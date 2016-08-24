@@ -14,13 +14,23 @@ class GuiWindow:
         layout.label("A window")
     
     def draw_workshop(self, context, layout):
+        props = context.scene.prk.item
         common(context, layout, self)
         
-        layout.separator()
-        layout.prop(context.scene.prk.item.window, "frame_width")
-        layout.label("Handle:")
         box = layout.box()
-        box.label("test")
+        column = box.column(align=True)
+        column.label("Asset type:")
+        column.row().prop(props.window, "assetType", text = "")
+        column.label("Side (left or right):")
+        column.row().prop(props, "assetSideLr", text = "")
+        column.label("Side (internal or external):")
+        column.row().prop(props, "assetSideIe", text = "")
+        box.operator("prk.workshop_set_asset_placeholder")
+        box.operator("prk.workshop_assign_asset")
+        
+        layout.separator()
+        if context.object and context.object.get("t") in pContext.items:
+            layout.prop(props.window, "frame_width")
 
 
 class Window(Opening):
@@ -51,6 +61,7 @@ def setFrameWidth(self, value):
 
 
 def getFrameWidth(self):
+    keyBlock = None
     def lookup(parent):
         for o in parent.children:
             if o.type == "MESH" and o.data.shape_keys:
@@ -62,7 +73,7 @@ def getFrameWidth(self):
     # Get the first encountered Blender MESH with the shape key <frame_width>,
     # perform lookup starting from <o> for that
     keyBlock = lookup(bpy.context.object)
-    return shapeKeyOffset * keyBlock.value
+    return shapeKeyOffset * keyBlock.value if keyBlock else 0.
 
 
 pContext.register(Window, GuiWindow)

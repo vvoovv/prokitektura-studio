@@ -4,6 +4,13 @@ import bpy, bmesh
 def makeActiveSelected(context, o):
     o.select = True
     context.scene.objects.active = o
+    
+
+def showWired(o, wired=True):
+    if o.type == 'MESH':
+        o.draw_type = 'WIRE' if wired else bpy.ops.wm.call_menu(name="CONSOLE_MT_console")
+    for o in o.children:
+        showWired(o, wired)
 
 
 def appendFromFile(context, filepath):
