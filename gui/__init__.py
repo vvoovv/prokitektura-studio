@@ -185,6 +185,7 @@ class PrkItemProperties(bpy.types.PropertyGroup):
         default = "n"
     )
 
+
 from item.wall import setWidth, getWidth, setLength, getLength
 class PrkStudioProperties(bpy.types.PropertyGroup):
     workshopType = bpy.props.EnumProperty(

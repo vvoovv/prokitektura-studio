@@ -1,6 +1,7 @@
 import bpy
-from base import zeroVector, pContext
-from util.blender import createEmptyObject, makeActiveSelected, appendFromFile, parent_set, showWired
+from base import zeroVector, zero2, pContext
+from util.blender import createEmptyObject, makeActiveSelected, appendFromFile, parent_set, showWired,\
+    getBmesh
 from .template import Template
 
 
@@ -195,7 +196,7 @@ class WorkshopSetAssetPlaceholder(bpy.types.Operator):
         props = context.scene.prk.item
         # side (internal or external) for the asset
         if props.assetSideIe != 'n':
-            # <sie> stands for side internal or external
+            # <sie> stands for <side internal or external>
             a["sie"] = props.assetSideIe
         
         # make <a> the active object
@@ -221,9 +222,10 @@ class WorkshopAssignAsset(bpy.types.Operator):
     relativePosition = bpy.props.FloatProperty(
         name = "Relative position",
         description = "Relative position of the asset on the template edge",
+        subtype = 'PERCENTAGE',
         min = 0.,
-        max = 1.,
-        unit = "LENGTH"
+        max = 100.,
+        default = 50.
     )
     
     @classmethod
@@ -231,20 +233,59 @@ class WorkshopAssignAsset(bpy.types.Operator):
         return context.mode == 'EDIT_MESH' and context.object.get("t") == Template.type
     
     def invoke(self, context, event):
+        # template Blender object
         o = context.object
+        bpy.ops.object.mode_set(mode='OBJECT')
+        
+        # check if exactly one edge is selected
+        bm = getBmesh(o)
+        edge = [edge for edge in bm.edges if edge.select]
+        if len(edge) != 1:
+            bpy.ops.object.mode_set(mode='EDIT')
+            self.report({'ERROR'}, "To assign an asset select exactly 2 vertices on the same edge")
+            return {'CANCELLED'}
+        bm.free()
         
         context.window_manager.fileselect_add(self)
-        return {"RUNNING_MODAL"}
+        return {'RUNNING_MODAL'}
     
     def execute(self, context):
-        templateObj = context.object
-        bpy.ops.object.mode_set(mode="OBJECT")
-        obj = appendFromFile(context, self.filepath)
-        obj.location = templateObj.location.copy()
-        parent_set(templateObj.parent, obj)
-        showWired(obj)
+        # template Blender object
+        o = context.object
+        t = Template(o, skipInit = True)
+        props = context.scene.prk.item
         
-        makeActiveSelected(context, obj)
+        # find the selected vertices
+        bm = t.bm
+        v = [v for v in bm.verts if v.select]
+        verts = (v[0].co, v[1].co)
+        # check if <verts> have the same <z>-coordinate (i.e. <verts> are located horizontally)
+        if abs(verts[1].z - verts[0].z) < zero2:
+            # verts[0] must be the leftmost vertex
+            if verts[0].x > verts[1].x:
+                verts = (verts[1], verts[0])
+                v = (v[1], v[0])
+        else:
+            # verts[0] must be the lower vertex
+            if verts[0].z > verts[1].z:
+                verts = (verts[1], verts[0])
+                v = (v[1], v[0])
+        
+        # <a> is for asset
+        a = appendFromFile(context, self.filepath)
+        a.location = verts[0] + self.relativePosition*(verts[1]-verts[0])/100.
+        parent_set(o, a)
+        # store <vids> for the tuple <v> of BMesh vertices as custom Blender object attributes
+        a["vid1"] = t.getVid(v[0])
+        a["vid2"] = t.getVid(v[1])
+        t.bm.free()
+        # side (left or right) for the asset
+        if props.assetSideLr != 'n':
+            # <slr> stands for <side left or right>
+            a["slr"] = props.assetSideLr
+        showWired(a)
+        
+        makeActiveSelected(context, a)
         # Without bpy.ops.transform.translate() some complex stuff (some modifiers)
         # may not be initialized correctly
         bpy.ops.transform.translate()
