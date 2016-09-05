@@ -2,9 +2,9 @@ import bpy
 from base.item import Item
 from base.mover_along_wall import AlongWallMover
 from base.mover_size import SizeMover
-from util.blender import addBooleanModifier, getLastOperator
 from item.wall import addTransformsVariable, addLocDiffVariable, addSinglePropVariable
-from util.blender import createMeshObject, createEmptyObject, getBmesh, setBmesh, parent_set, addEdgeSplitModifier
+from util.blender import addBooleanModifier, getLastOperator, hide,\
+    createMeshObject, createEmptyObject, getBmesh, setBmesh, parent_set, addEdgeSplitModifier
 
 
 def getReferencesForOpening(o):
@@ -216,5 +216,7 @@ class Opening(Item):
                 kb.slider_min = -10.
                 kb.slider_max = 10.
         
-        # hide the template Blender object
-        t.o.hide = True
+        t.insertAssets()
+        
+        # hide the template Blender object and all its children
+        hide(t.o, True)

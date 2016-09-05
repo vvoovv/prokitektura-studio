@@ -2,7 +2,7 @@ import math
 import bpy, bmesh, mathutils
 from base import zero2, zeroVector
 from util import acos, is90degrees, is180degrees
-from util.blender import getBmesh, setBmesh, setVertexGroupName, getVertsForVertexGroup
+from util.blender import getBmesh, setBmesh, getVertsForVertexGroup
 
 
 # value of the shape key offset for the shape key value equal to 1.
@@ -153,6 +153,9 @@ class Node:
         
         self.shear(o, angle)
         
+        # remember the transformation matrix
+        self.matrix = matrix
+        
         return matrix
     
     def rotate(self, o):
@@ -179,11 +182,16 @@ class Node:
         pass
     
     def updateVertexGroupNames(self, o, template):
-        # update the names of the vertex groups that define the ends of the node <o>
+        # update the names of the vertex groups that define the open ends of the node <o>
+        # store the correspondence of the old and new names in the dictionary <ends> 
+        ends = {}
+        template.ends = ends
         for i in range(len(self.edges)):
+            group = o.vertex_groups[ self._edges[i][1] ]
             _vid = template.getVid(self.edges[i][1])
             # vertices with vids <self.vid> and <_vid> define an edge
-            setVertexGroupName(o, self._edges[i][1], "e_" + self.vid + "_" + _vid)
+            ends[group.name] = (self.vid, _vid)
+            group.name = "e_" + self.vid + "_" + _vid
         # update the names of vertex groups that define a surface
         for i,g in enumerate(o.vertex_groups):
             if g.name[0] == "s":

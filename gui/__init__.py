@@ -157,7 +157,7 @@ class PrkWindowProperties(bpy.types.PropertyGroup):
     assetType = bpy.props.EnumProperty(
         items = [
             ("handle", "handle", "handle"),
-            ("hinges", "hinges", "hinges"),
+            ("hinge", "hinge", "hinge"),
             ("silling", "silling", "silling")
         ],
         name = "Asset type"

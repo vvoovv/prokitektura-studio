@@ -231,9 +231,44 @@ class ChildOffsets:
             for i in range(len(offsets)):
                 offsets[i] += offset
 
+
+class NodeCache:
+    """
+    Cache for Blender objects used as nodes for a template;
+    """
+    def reset(self):
+        self.nodes = {}
+    
+    def get(self, o):
+        name = o.name
+        nodes = self.nodes
+        if not name in self.nodes:
+            nodes[name] = NodeCacheEntry(o)
+        return nodes[name]
+
+
+class NodeCacheEntry:
+    """
+    A wrapper for actual Blender object used as a node for a template
+    """
+    def __init__(self, o):
+        self.offsets = []
+        self.assets = {}
+        # scan Blender object o for offsets and asset placeholders
+        for e in o.children:
+            t = e.get("t")
+            if t == "offset":
+                self.offsets.append(e.location)
+            elif t == "asset":
+                self.assets[e["t2"]] = e
+
+
 class Template:
     
     type = "template"
+    
+    # static variable and accessable by all templates
+    nodeCache = NodeCache()
     
     def __init__(self, o, parentTemplate=None, **kwargs):
         self.o = o
@@ -374,6 +409,9 @@ class Template:
         """
         from .node import shapeKeyOffset
         from util.inset import Corner
+        
+        # a wrapper for the Blender object <n> from the cache <self.nodeCache>
+        node = self.nodeCache.get(n)
         # We don't need to set hooks for the very top template
         # We also don't need to set hooks if the parent mesh correspoding to the parent template
         # doesn't have a shape key <frame_width>
@@ -552,7 +590,7 @@ class Template:
         n.select = True
         matrix = nw.transform(n)
         
-        self.scanOffsets(vid, _n, matrix)
+        self.processOffsets(vid, node, matrix)
         # <parent> is also the current Blender active object
         parent.select = True
         bpy.ops.object.join()
@@ -864,19 +902,36 @@ class Template:
                 break
             _e = e
     
-    def scanOffsets(self, vid, n, matrix):
+    def processOffsets(self, vid, node, matrix):
         """
         Scan Blender object <n> for Blender EMPTY objects that define an offset for a child item
         """
         # offsets could have been be set in <self.prepareOffsets()>
         
-        for e in n.children:
-            if "t" in e and e["t"]=="offset":
-                offset = matrix * e.location if matrix else e.location.copy()
-                # get neighbor edges for the <offset> vector
-                # actually, the first edge is enough since it unambiguously defines the related corner
-                e1 = self.nodes[vid].getNeighborEdges(offset)[0][0]
-                p = self.parentTemplate
-                if p and vid in p.nodes:
-                    offset += p.childOffsets.get(vid, e1, True)
-                self.childOffsets.add(vid, e1, offset, True)
+        for location in node.offsets:
+            offset = matrix * location if matrix else location.copy()
+            # get neighbor edges for the <offset> vector
+            # actually, the first edge is enough since it unambiguously defines the related corner
+            e1 = self.nodes[vid].getNeighborEdges(offset)[0][0]
+            p = self.parentTemplate
+            if p and vid in p.nodes:
+                offset += p.childOffsets.get(vid, e1, True)
+            self.childOffsets.add(vid, e1, offset, True)
+    
+    def insertAssets(self):
+        o = self.o
+        # scan the template for assets
+        for a in o.children:
+            if a.get("t") != "asset":
+                continue
+            vid1 = a["vid1"]
+            vid2 = a["vid2"]
+            # type of the asset
+            t = a.get("t2")
+            bm = getBmesh(o)
+            v1 = getVertsForVertexGroup(o, bm, vid1)[0].co
+            v2 = getVertsForVertexGroup(o, bm, vid2)[0].co
+            location = v1 + projectOntoLine(a.location, (v2-v1).normalized())
+            e = createEmptyObject("hui", location)
+            parent_set(self.meshObject.parent, e)
+            bm.free()

@@ -118,6 +118,8 @@ class WorkshopMakeItem(bpy.types.Operator):
         if not context.scene.prk.workshopType in pContext.items:
             return {'FINISHED'}
         parent = context.object
+        # reset the cache of nodes
+        Template.nodeCache.reset()
         # getting the parent template (i.e. it doesn't contain the custom attribute <p>)
         for o in parent.children:
             if not "p" in o:
@@ -183,21 +185,40 @@ class WorkshopSetAssetPlaceholder(bpy.types.Operator):
     def invoke(self, context, event):
         o = context.object
         bpy.ops.object.mode_set(mode='OBJECT')
+        assetType = context.scene.prk.item.window.assetType
         # Blender EMPTY  object as a placeholder for the offset
         a = createEmptyObject(
-            "offset_" + o.name,
+            o.name + "_" + assetType,
             context.scene.cursor_location - o.location,
             False,
             empty_draw_type='PLAIN_AXES',
             empty_draw_size=0.01
         )
         a["t"] = "asset"
+        a["t2"] = assetType
         a.parent = o
         props = context.scene.prk.item
         # side (internal or external) for the asset
         if props.assetSideIe != 'n':
             # <sie> stands for <side internal or external>
             a["sie"] = props.assetSideIe
+        
+        # check if there is a selected vertex and if it defines the node's open end
+        index = 0
+        for v in o.data.vertices:
+            if v.select:
+                # iterate through vertex groups of the vertex <v>
+                for g in v.groups:
+                    name = o.vertex_groups[g.group].name
+                    if name[:2] == "e_":
+                        index = int(name[2:])
+                        break
+                if index:
+                    break
+        if index:
+            # remember the index of the node's open end
+            a["e"] = index
+            
         
         # make <a> the active object
         o.select = False

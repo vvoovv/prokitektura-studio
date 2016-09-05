@@ -173,10 +173,6 @@ def getVertsForVertexGroup(obj, bm, group):
     return verts
 
 
-def setVertexGroupName(o, groupIndex, name):
-    o.vertex_groups[groupIndex].name = name
-
-
 def parent_set(parent, *objects):
     for obj in objects:
         obj.parent = parent
@@ -194,6 +190,12 @@ def cursor_2d_to_location_3d(context, event):
 def hide_select(o, value):
     o.hide = value
     o.hide_select = value
+
+
+def hide(o, value):
+    o.hide = value
+    for o in o.children:
+        hide(o, value)
 
 
 def modifier_apply(o, modifierName):
