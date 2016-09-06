@@ -937,9 +937,9 @@ class Template:
             for edge in vert1.link_edges:
                 if vert2 in edge.verts:
                     break
-            location = projectOntoLine(a.location, (v2-v1).normalized())
+            location = projectOntoLine(a.location-v1, (v2-v1).normalized())
             # relative location on the edge
-            location = (location - v1).length / (v2 - v1).length
+            location = location.length / (v2 - v1).length
             # If the <edge> is external, take into account offsets for the vertices <v1> and <v2>,
             # otherwise don't take offsets into account
             if len(edge.link_faces) == 1:
