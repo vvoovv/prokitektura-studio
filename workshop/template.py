@@ -240,7 +240,7 @@ class NodeCache:
         self.nodes = {}
     
     def get(self, o):
-        name = o.name
+        name = o if isinstance(o, str) else o.name
         nodes = self.nodes
         if not name in self.nodes:
             nodes[name] = NodeCacheEntry(o)
@@ -926,12 +926,60 @@ class Template:
                 continue
             vid1 = a["vid1"]
             vid2 = a["vid2"]
+            
+            bm = getBmesh(o)
+            vert1 = getVertsForVertexGroup(o, bm, vid1)[0]
+            vert2 = getVertsForVertexGroup(o, bm, vid2)[0]
+            v1 = vert1.co
+            v2 = vert2.co
+            
+            # get the edge connecting two vertices <v1> and <v2>
+            for edge in vert1.link_edges:
+                if vert2 in edge.verts:
+                    break
+            location = projectOntoLine(a.location, (v2-v1).normalized())
+            # relative location on the edge
+            location = (location - v1).length / (v2 - v1).length
+            # If the <edge> is external, take into account offsets for the vertices <v1> and <v2>,
+            # otherwise don't take offsets into account
+            if len(edge.link_faces) == 1:
+                # the only BMLoop for <edge>
+                loop = edge.link_loops[0]
+                # do we walk from <vert2> to <vert1> or in the opposite direction
+                fromVert2 = loop.vert == vert2
+                if fromVert2:
+                    # temporarily swap <vert1> and <vert2>
+                    vert1, vert2 = vert2, vert1
+                # edge vector for the corner of the vertex <vert1>
+                edgeVec1 = getVectorFromEdge(edge, vert1)
+                # edge vector for corner of the <vert2> is the other external edge for <vert2>
+                for edgeVec2 in vert2.link_edges:
+                    if edgeVec2 != edge and len(edgeVec2.link_faces) == 1:
+                        break
+                edgeVec2 = getVectorFromEdge(edgeVec2, vert2)
+                if fromVert2:
+                    # swap the values back
+                    vert1, vert2 = vert2, vert1
+                    edgeVec1, edgeVec2 = edgeVec2, edgeVec1
+                # adding offset to the vectors <v1> and <v2>
+                v1 += self.parentTemplate.childOffsets.get(vid1, edgeVec1)
+                v2 += self.parentTemplate.childOffsets.get(vid2, edgeVec2)
+            
+            location = v1 + location * (v2 - v1)
+            
+            # calculate the offset <tOffset> perpedicular to the vector <v2 - v1> (i.e. transverse offset)
             # type of the asset
             t = a.get("t2")
-            bm = getBmesh(o)
-            v1 = getVertsForVertexGroup(o, bm, vid1)[0].co
-            v2 = getVertsForVertexGroup(o, bm, vid2)[0].co
-            location = v1 + projectOntoLine(a.location, (v2-v1).normalized())
-            e = createEmptyObject("hui", location)
+            
+            tOffset = self.nodeCache.get(o[vid1]).assets[t]
+            if tOffset:
+                matrix = self.nodes[vid1].matrix
+            else:
+                tOffset = self.nodeCache.get(o[vid2]).assets[t]
+                matrix = self.nodes[vid2].matrix
+            if tOffset:
+                tOffset = matrix*tOffset.location if matrix else tOffset.location.copy()
+                location += projectOntoPlane(tOffset, (v2 - v1).normalized())
+            e = createEmptyObject("test", location)
             parent_set(self.meshObject.parent, e)
             bm.free()

@@ -296,6 +296,8 @@ class WorkshopAssignAsset(bpy.types.Operator):
         a = appendFromFile(context, self.filepath)
         a.location = verts[0] + self.relativePosition*(verts[1]-verts[0])/100.
         parent_set(o, a)
+        a["t"] = "asset"
+        a["t2"] = props.window.assetType
         # store <vids> for the tuple <v> of BMesh vertices as custom Blender object attributes
         a["vid1"] = t.getVid(v[0])
         a["vid2"] = t.getVid(v[1])
