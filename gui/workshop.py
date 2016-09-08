@@ -1,6 +1,8 @@
 
 
 def common(context, layout, guiClsInstance):
+    layout.box().prop(context.scene.prk, "baseDirectory")
+    
     name = guiClsInstance.itemName
     box = layout.box()
     op = box.operator("prk.workshop_start_template")

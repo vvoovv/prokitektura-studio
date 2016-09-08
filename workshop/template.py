@@ -1,4 +1,4 @@
-import mathutils, bpy, bmesh
+import os, mathutils, bpy, bmesh
 from base import zero2, zeroVector
 from util import is0degrees
 from util.blender import *
@@ -918,7 +918,7 @@ class Template:
                 offset += p.childOffsets.get(vid, e1, True)
             self.childOffsets.add(vid, e1, offset, True)
     
-    def insertAssets(self):
+    def insertAssets(self, context):
         o = self.o
         # scan the template for assets
         for a in o.children:
@@ -980,6 +980,11 @@ class Template:
             if tOffset:
                 tOffset = matrix*tOffset.location if matrix else tOffset.location.copy()
                 location += projectOntoPlane(tOffset, (v2 - v1).normalized())
-            e = createEmptyObject("test", location)
-            parent_set(self.meshObject.parent, e)
             bm.free()
+            # parent object for the hierarchy of assets
+            p = createEmptyObject("test", location)
+            parent_set(self.meshObject.parent, p)
+            # import asset
+            a = appendFromFile(context, os.path.join(context.scene.prk.baseDirectory, a["path"]))
+            a.location = zeroVector.copy()
+            parent_set(p, a)

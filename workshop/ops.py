@@ -1,4 +1,4 @@
-import bpy
+import os, bpy
 from base import zeroVector, zero2, pContext
 from util.blender import createEmptyObject, makeActiveSelected, appendFromFile, parent_set, showWired,\
     getBmesh
@@ -249,6 +249,12 @@ class WorkshopAssignAsset(bpy.types.Operator):
         default = 50.
     )
     
+    setBaseDirectory = bpy.props.BoolProperty(
+        name = "Set base directory",
+        description = "Also set base directory for assets",
+        default = True
+    )
+    
     @classmethod
     def poll(cls, context):
         return context.mode == 'EDIT_MESH' and context.object.get("t") == Template.type
@@ -267,6 +273,11 @@ class WorkshopAssignAsset(bpy.types.Operator):
             return {'CANCELLED'}
         bm.free()
         
+        prk = context.scene.prk
+        baseDir = prk.baseDirectory
+        if baseDir:
+            self.directory = os.path.join(baseDir, prk.item.window.assetType)
+        
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
     
@@ -274,7 +285,11 @@ class WorkshopAssignAsset(bpy.types.Operator):
         # template Blender object
         o = context.object
         t = Template(o, skipInit = True)
-        props = context.scene.prk.item
+        prk = context.scene.prk
+        props = prk.item
+        
+        if self.setBaseDirectory:
+            prk.baseDirectory = os.path.dirname(os.path.dirname(self.directory))
         
         # find the selected vertices
         bm = t.bm
@@ -298,6 +313,8 @@ class WorkshopAssignAsset(bpy.types.Operator):
         parent_set(o, a)
         a["t"] = "asset"
         a["t2"] = props.window.assetType
+        # the path is set relative to <prk.baseDirectory>
+        a["path"] = self.filepath[len(prk.baseDirectory)+1:]
         # store <vids> for the tuple <v> of BMesh vertices as custom Blender object attributes
         a["vid1"] = t.getVid(v[0])
         a["vid2"] = t.getVid(v[1])

@@ -216,7 +216,7 @@ class Opening(Item):
                 kb.slider_min = -10.
                 kb.slider_max = 10.
         
-        t.insertAssets()
+        t.insertAssets(context)
         
         # hide the template Blender object and all its children
         hide(t.o, True)

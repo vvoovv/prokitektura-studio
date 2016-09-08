@@ -188,6 +188,11 @@ class PrkItemProperties(bpy.types.PropertyGroup):
 
 from item.wall import setWidth, getWidth, setLength, getLength
 class PrkStudioProperties(bpy.types.PropertyGroup):
+    baseDirectory = bpy.props.StringProperty(
+        name = "Base directory",
+        subtype = "DIR_PATH",
+        description = "Base directory for assets"
+    )
     workshopType = bpy.props.EnumProperty(
         items = [
             ("window", "window", "Window"),
