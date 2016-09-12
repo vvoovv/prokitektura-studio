@@ -560,7 +560,7 @@ class Template:
             assignGroupToVerts(n, bm.verts.layers.deform[0], group, *bm.verts)
             setBmesh(n, bm)
             # create an EMPTY object and use it in the HOOK modifier
-            hookObj = createEmptyObject(group, loc, False, empty_draw_type='PLAIN_AXES', empty_draw_size=0.01)
+            hookObj = createEmptyObject(group, loc, False, empty_draw_size=0.01)
             dataPath = "data.shape_keys.key_blocks[\"frame_width\"].value"
             # add drivers for <hookObj> that depend on the shape key <frame_width>
             # x
@@ -920,6 +920,9 @@ class Template:
     
     def insertAssets(self, context):
         o = self.o
+        nodes = self.nodes
+        nodeCache = self.nodeCache
+        
         # scan the template for assets
         for a in o.children:
             if a.get("t") != "asset":
@@ -970,19 +973,42 @@ class Template:
             # calculate the offset <tOffset> perpedicular to the vector <v2 - v1> (i.e. transverse offset)
             # type of the asset
             t = a.get("t2")
+            def processOffset(tOffset, pVid, sVid):
+                """
+                A helper function to check if we have an appropriate <tOffset>
+                
+                Args:
+                    tOffset (list): Blender EMPTY object serving as asset placeholder
+                    pVid (str): Primary vid
+                    sVid (str): the other vid
+                
+                Returns:
+                    A tuple with <tOffset> (may be set to None) and transformation matrix (may be None)
+                """
+                # index of the open end of the node Blender object to which the asset is attached
+                e = tOffset.get("e")
+                ends = nodes[pVid].ends["e_"+str(e)]
+                if pVid in ends and sVid in ends:
+                    matrix = nodes[pVid].matrix
+                else:
+                    matrix = None
+                    tOffset = None
+                return tOffset, matrix
             
-            tOffset = self.nodeCache.get(o[vid1]).assets[t]
+            # check if the asset placeholder is set for the node with <vid1>
+            tOffset = nodeCache.get(o[vid1]).assets[t]
             if tOffset:
-                matrix = self.nodes[vid1].matrix
-            else:
-                tOffset = self.nodeCache.get(o[vid2]).assets[t]
-                matrix = self.nodes[vid2].matrix
+                tOffset, matrix = processOffset(tOffset, vid1, vid2)
+            if not tOffset:
+                # check if the asset placeholder is set for the node with <vid2>
+                tOffset = nodeCache.get(o[vid2]).assets[t]
+                tOffset, matrix = processOffset(tOffset, vid2, vid1)
             if tOffset:
                 tOffset = matrix*tOffset.location if matrix else tOffset.location.copy()
                 location += projectOntoPlane(tOffset, (v2 - v1).normalized())
             bm.free()
             # parent object for the hierarchy of assets
-            p = createEmptyObject("test", location)
+            p = createEmptyObject("test", location, True, empty_draw_size=0.01)
             parent_set(self.meshObject.parent, p)
             # import asset
             a = appendFromFile(context, os.path.join(context.scene.prk.baseDirectory, a["path"]))

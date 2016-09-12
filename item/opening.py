@@ -163,7 +163,7 @@ class Opening(Item):
         # <pt> stands for parent template
         pt = t.parentTemplate
         if pt:
-            p = createEmptyObject(name, _o.location-pt.o.location, False, empty_draw_type='PLAIN_AXES', empty_draw_size=0.01)
+            p = createEmptyObject(name, _o.location-pt.o.location, False, empty_draw_size=0.01)
         else:
             # parent for the whole hierarchy of window Blender objects
             p = t.p

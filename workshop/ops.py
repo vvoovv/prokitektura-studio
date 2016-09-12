@@ -31,7 +31,7 @@ class WorkshopStartTemplate(bpy.types.Operator):
         o["id"] = 1
         # reverse the surface <s1> by default
         o["s1"] = "reversed"
-        parent = createEmptyObject(self.objectNameBase, location, False, empty_draw_type='PLAIN_AXES', empty_draw_size=0.05)
+        parent = createEmptyObject(self.objectNameBase, location, False, empty_draw_size=0.05)
         parent["t"] = context.scene.prk.workshopType
         o.parent = parent
         parent["part_counter"] = 2
@@ -160,7 +160,6 @@ class WorkshopSetChildOffset(bpy.types.Operator):
             "offset_" + o.name,
             context.scene.cursor_location - o.location,
             False,
-            empty_draw_type='PLAIN_AXES',
             empty_draw_size=0.01
         )
         childOffset["t"] = "offset"
@@ -191,7 +190,6 @@ class WorkshopSetAssetPlaceholder(bpy.types.Operator):
             o.name + "_" + assetType,
             context.scene.cursor_location - o.location,
             False,
-            empty_draw_type='PLAIN_AXES',
             empty_draw_size=0.01
         )
         a["t"] = "asset"

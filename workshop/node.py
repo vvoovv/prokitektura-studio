@@ -185,7 +185,7 @@ class Node:
         # update the names of the vertex groups that define the open ends of the node <o>
         # store the correspondence of the old and new names in the dictionary <ends> 
         ends = {}
-        template.ends = ends
+        self.ends = ends
         for i in range(len(self.edges)):
             group = o.vertex_groups[ self._edges[i][1] ]
             _vid = template.getVid(self.edges[i][1])
